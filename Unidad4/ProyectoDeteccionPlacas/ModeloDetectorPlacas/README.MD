@@ -1,0 +1,1 @@
+## Sistema Segunda capa, Modelo Detector Placas
