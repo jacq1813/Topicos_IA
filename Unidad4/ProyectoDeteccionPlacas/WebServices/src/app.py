@@ -2,6 +2,7 @@ from flask import Flask
 from flask_cors import CORS
 from database import db
 import json
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -14,7 +15,9 @@ class CustomJSONEncoder(json.JSONEncoder):
 app.json_encoder = CustomJSONEncoder
 app.json.ensure_ascii = False
 
-DATABASE_URL = "postgresql://bddetectorplates_user:Je6U9C08KLCWhINAyfPVkVZaQi41t68L@dpg-d4d9h6qli9vc73cdf4s0-a.oregon-postgres.render.com/bddetectorplates"
+#DATABASE_URL = "postgresql://bddetectorplates_user:Je6U9C08KLCWhINAyfPVkVZaQi41t68L@dpg-d4d9h6qli9vc73cdf4s0-a.oregon-postgres.render.com/bddetectorplates"
+#app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///local_database.db")
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
