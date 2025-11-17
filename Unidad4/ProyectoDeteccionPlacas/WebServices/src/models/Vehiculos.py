@@ -1,33 +1,32 @@
-from app import db
+from database import db
 
 class Vehiculos(db.Model):
-    __tablename__ = 'Vehiculos'
+    __tablename__ = 'vehiculos'
     
-    # Clave primaria segun BD
-    NumPlaca = db.Column(db.String(20), primary_key=True)
-    Modelo = db.Column(db.String(50), nullable=True)
-    Marca = db.Column(db.String(50), nullable=True)
-    Anio = db.Column(db.Integer, nullable=True)
-    PropietarioID = db.Column(db.Integer, db.ForeignKey('Propietario.PropietarioID'), nullable=False)
+    numplaca = db.Column(db.String(20), primary_key=True)
+    modelo = db.Column(db.String(50), nullable=True)
+    marca = db.Column(db.String(50), nullable=True)
+    anio = db.Column(db.Integer, nullable=True)
+    propietarioid = db.Column(db.Integer, db.ForeignKey('propietario.propietarioid'), nullable=False)
     
     # Relacion con Propietario
     propietario = db.relationship('Propietario', backref='vehiculos')
 
     def __init__(self, NumPlaca, Modelo, Marca, Anio, PropietarioID):
-        self.NumPlaca = NumPlaca
-        self.Modelo = Modelo
-        self.Marca = Marca
-        self.Anio = Anio
-        self.PropietarioID = PropietarioID
+        self.numplaca = NumPlaca
+        self.modelo = Modelo
+        self.marca = Marca
+        self.anio = Anio
+        self.propietarioid = PropietarioID
         
     def to_dict(self):
         return {
-            'NumPlaca': self.NumPlaca,
-            'Modelo': self.Modelo,
-            'Marca': self.Marca,
-            'Anio': self.Anio,
-            'PropietarioID': self.PropietarioID
+            'NumPlaca': self.numplaca,
+            'Modelo': self.modelo,
+            'Marca': self.marca,
+            'Anio': self.anio,
+            'PropietarioID': self.propietarioid
         }
         
     def __repr__(self):
-        return f"<Vehiculo {self.NumPlaca} - {self.Marca} {self.Modelo} ({self.Anio})>"
+        return f"<Vehiculo {self.numplaca} - {self.marca} {self.modelo} ({self.anio})>"

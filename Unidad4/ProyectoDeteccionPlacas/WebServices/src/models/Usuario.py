@@ -1,25 +1,24 @@
-from app import db
+from database import db
 
 class Usuario(db.Model):
-    __tablename__ = 'Usuario'
+    __tablename__ = 'usuario'
     
-    UsuarioID = db.Column(db.Integer, primary_key=True)  # SERIAL = autoincrement
-    Nombre = db.Column(db.String(100), nullable=False)  
-    Contrasena = db.Column(db.String(255), nullable=False)  
-    Correo = db.Column(db.String(100), unique=True, nullable=False) 
+    usuarioid = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100), nullable=False)
+    contrasena = db.Column(db.String(255), nullable=False)
+    correo = db.Column(db.String(100), unique=True, nullable=False)
     
     def __init__(self, Nombre, Contrasena, Correo):
-        self.Nombre = Nombre
-        self.Contrasena = Contrasena
-        self.Correo = Correo
+        self.nombre = Nombre
+        self.contrasena = Contrasena
+        self.correo = Correo
         
     def to_dict(self):
         return {
-            'UsuarioID': self.UsuarioID,
-            'Nombre': self.Nombre,
-            'Correo': self.Correo
-            # Nunca incluir la contraseña en el diccionario por seguridad
+            'UsuarioID': self.usuarioid,
+            'Nombre': self.nombre,
+            'Correo': self.correo
         }
         
     def __repr__(self):
-        return f"<Usuario {self.UsuarioID}: {self.Nombre} - {self.Correo}>"
+        return f"<Usuario {self.usuarioid}: {self.nombre} - {self.correo}>"

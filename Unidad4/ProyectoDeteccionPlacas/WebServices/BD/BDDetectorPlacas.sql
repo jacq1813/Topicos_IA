@@ -1,4 +1,4 @@
-CREATE TABLE Propietario (
+CREATE TABLE propietario (
     PropietarioID SERIAL PRIMARY KEY, --auto increment
     Nombre VARCHAR(100) NOT NULL,
     Correo VARCHAR(100) UNIQUE NOT NULL,
@@ -7,14 +7,14 @@ CREATE TABLE Propietario (
     Direccion TEXT
 );
 
-CREATE TABLE Usuario (
+CREATE TABLE usuario (
     UsuarioID SERIAL PRIMARY KEY,
     Nombre VARCHAR(100) NOT NULL,
     Contrasena VARCHAR(255) NOT NULL,
     Correo VARCHAR(100) UNIQUE NOT NULL
 );
 
-CREATE TABLE Vehiculos (
+CREATE TABLE vehiculos (
     NumPlaca VARCHAR(20) PRIMARY KEY, 
     Modelo VARCHAR(50),
     Marca VARCHAR(50),
@@ -26,7 +26,7 @@ CREATE TABLE Vehiculos (
         ON DELETE RESTRICT -- no borra propietarios si tiene vehiculos
 );
 
-CREATE TABLE Reporte (
+CREATE TABLE reporte (
     ReporteID SERIAL PRIMARY KEY,
     FechaEmision TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     Coordenadas VARCHAR(100),
@@ -86,7 +86,7 @@ BEGIN
         direccion_generada := 'Calle # ' || (i * 10) || ', Col. ' || colonias[1 + (i % array_length(colonias, 1))] || ', Culiacán, Sinaloa.';
 
         -- Inserción
-        INSERT INTO Propietario (Nombre, Correo, Telefono, CURP, Direccion)
+        INSERT INTO propietario (Nombre, Correo, Telefono, CURP, Direccion)
         VALUES (nombre_generado, correo_generado, telefono_generado, curp_ficticio, direccion_generada);
     END LOOP;
 END $$;
@@ -114,7 +114,7 @@ BEGIN
         num_placa_generada := letras_placa[1 + (i % 10)] || letras_placa[1 + ((i+1) % 10)] || letras_placa[1 + ((i+2) % 10)] || '-' || LPAD(i::text, 4, '0');
         
         -- Inserción. Asignamos al PropietarioID 'i' (1 al 100)
-        INSERT INTO Vehiculos (NumPlaca, Modelo, Marca, Anio, PropietarioID)
+        INSERT INTO vehiculos (NumPlaca, Modelo, Marca, Anio, PropietarioID)
         VALUES (num_placa_generada, modelo_vehiculo, marca_vehiculo, anio_vehiculo, i);
     END LOOP;
 END $$;
