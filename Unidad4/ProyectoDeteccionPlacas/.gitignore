@@ -1,2 +1,16 @@
 # Ignorar la carpeta del dataset dentro de ModeloDetectorPlacas
 ModeloDetectorPlacas/dataset/
+ModeloDetectorPlacas/dataset_final_visual/
+ModeloDetectorPlacas/dataset_visual_canny/
+ModeloDetectorPlacas/img_test/
+ModeloDetectorPlacas/modelos_entrenados/
+ModeloDetectorPlacas/dataset_final_npy/
+ModeloDetectorPlacas/dataset2/
+ModeloDetectorPlacas/runs/
+ModeloDetectorPlacas/proc2.ipynb
+ModeloDetectorPlacas/mejor_modelo_placas.keras
+ModeloDetectorPlacas/Prueba.ipynb
+ModeloDetectorPlacas/Procesamient.ipynb
+ModeloDetectorPlacas/ProcesamientoCopia.ipynb
+ModeloDetectorPlacas/data.yaml
+ModeloDetectorPlacas/yolov8n.pt
