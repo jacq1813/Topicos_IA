@@ -1,0 +1,19 @@
+# Mac OS
+.DS_Store
+
+# Android/Gradle files
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.idea/
+/build
+/app/build
+/captures
+.externalNativeBuild
+.cxx
+*.apk
+*.aab
+
+# Google Services (si usas Firebase, descomenta la siguiente línea para seguridad)
+# google-services.json
