@@ -4,6 +4,10 @@ import com.example.detec.model.*
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.POST
+// ApiService.kt
+import okhttp3.MultipartBody
+import retrofit2.http.Multipart
+import retrofit2.http.Part
 
 interface ApiService {
 
@@ -17,6 +21,9 @@ interface ApiService {
     @POST("api/usuarios/register")
     suspend fun register(@Body request: RegisterRequest): Response<LoginResponse>
 
+    @Multipart
+    @POST("api/ia/detectar")
+    suspend fun analizarImagen(@Part imagen: MultipartBody.Part): Response<PlacaResponse>
 
     // --- REPORTES ---
 
@@ -24,3 +31,8 @@ interface ApiService {
     @POST("api/reportes/")
     suspend fun crearReporte(@Body request: ReportRequest): Response<ReportResponse>
 }
+data class PlacaResponse(
+    val message: String?,
+    val placa: String?,
+    val confianza: Double?
+)
