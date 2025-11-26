@@ -81,6 +81,13 @@ def analizar_placa():
         }), 200
 
     except Exception as e:
+
+        print("\n\n" + "="*30)
+        print(f"❌ ERROR FATAL OCURRIDO:")
+        print(f"TIPO: {type(e)}")
+        print(f"MENSAJE: {str(e)}")
+        print("="*30 + "\n\n")
+        
         # En caso de error, intentar limpiar memoria
         gc.collect()
         return jsonify({'error': str(e)}), 500

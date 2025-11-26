@@ -14,7 +14,11 @@ data class RegisterRequest(
     @SerializedName("Correo") val correo: String,
     @SerializedName("Contrasena") val contrasena: String
 )
-
+data class PlacaResponse(
+    val placa: String?,
+    val confianza: Double?,
+    val error: String?
+)
 data class LoginResponse(
     val message: String?, // "Login exitoso"
     val error: String?,   // Por si falla

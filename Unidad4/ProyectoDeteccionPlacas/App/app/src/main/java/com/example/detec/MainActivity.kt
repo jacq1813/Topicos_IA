@@ -79,15 +79,14 @@ fun AppNavigation() {
                         popUpTo(Routes.HOME) { inclusive = true }
                     }
                 },
-                onNavigateBack = { navController.popBackStack() }, // Esto está bien
-                onTakePhoto = {
-                    // Lógica para abrir cámara
-                },
-                onSelectFromGallery = {
-                    // Lógica para abrir galería
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
+                // BORRAMOS onTakePhoto y onSelectFromGallery PORQUE YA NO SE NECESITAN AQUÍ
             )
         }
+
+
         composable(Routes.USER_PROFILE) {
             UserProfileScreen(
                 onNavigateBack = {
