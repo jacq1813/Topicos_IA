@@ -1,16 +1,14 @@
+
 from flask import Flask, request, jsonify
-from ultralytics import YOLO
-import easyocr
+# Importamos gc (Garbage Collector) para limpiar memoria a la fuerza
+import gc 
 import cv2
 import numpy as np
+import torch
 
 app = Flask(__name__)
 
-# Cargar modelos en memoria al iniciar
-print("⏳ Cargando Cerebro de IA...")
-model = YOLO('best.pt') 
-reader = easyocr.Reader(['es'], gpu=False)
-print("✅ IA Lista para recibir fotos.")
+print("🚀 Servidor Iniciado (Modo Ahorro de Memoria)")
 
 @app.route('/analizar', methods=['POST'])
 def analizar_placa():
@@ -18,8 +16,6 @@ def analizar_placa():
         return jsonify({'error': 'Falta la imagen'}), 400
 
     file = request.files['imagen']
-    
-    # 1. Leer imagen
     filestr = file.read()
     npimg = np.frombuffer(filestr, np.uint8)
     frame = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
@@ -27,35 +23,57 @@ def analizar_placa():
     if frame is None:
         return jsonify({'error': 'Imagen corrupta'}), 400
 
+    texto_placa = "NO DETECTADO"
+    confianza_max = 0.0
+
     try:
-        # 2. YOLO Detecta
+        # --- PASO 1: Cargar YOLO y Detectar ---
+        print("🧠 Cargando YOLO...")
+        from ultralytics import YOLO
+        model = YOLO('best.pt') 
+        
         results = model(frame)
         
-        texto_placa = "NO DETECTADO"
-        confianza_max = 0.0
-
+        # Guardamos los recortes de las placas detectadas
+        recortes = []
         for r in results:
             boxes = r.boxes
             for box in boxes:
-                # Extraer confianza
-                confianza = float(box.conf[0])
-                if confianza > 0.4:
-                    # Extraer coordenadas
-                    x1, y1, x2, y2 = box.xyxy[0]
-                    x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+                conf = float(box.conf[0])
+                if conf > 0.4:
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    crop = frame[y1:y2, x1:x2]
+                    recortes.append((crop, conf))
 
-                    # 3. Recortar (Crop)
-                    placa_recorte = frame[y1:y2, x1:x2]
-                    
-                    # 4. OCR Lee
-                    ocr_result = reader.readtext(placa_recorte)
-                    for (bbox, text, prob) in ocr_result:
-                        if prob > 0.3:
-                            texto_limpio = text.replace(" ", "").upper()
-                            # Guardamos el mejor resultado
-                            if confianza > confianza_max:
-                                confianza_max = confianza
-                                texto_placa = texto_limpio
+        # --- LIMPIEZA CRÍTICA ---
+        # Borramos YOLO de la memoria RAM inmediatamente
+        del model
+        del results
+        del YOLO
+        gc.collect() # Forzamos al basurero a limpiar la RAM
+        torch.cuda.empty_cache() if torch.cuda.is_available() else None
+        print("🗑️ Memoria liberada de YOLO")
+
+        # --- PASO 2: Cargar EasyOCR solo si hay placas ---
+        if recortes:
+            print("📖 Cargando EasyOCR...")
+            import easyocr
+            # Cargamos EasyOCR SOLO ahora que hay espacio
+            reader = easyocr.Reader(['es'], gpu=False) 
+            
+            for crop, conf in recortes:
+                ocr_result = reader.readtext(crop)
+                for (bbox, text, prob) in ocr_result:
+                    if prob > 0.3:
+                        limpio = text.replace(" ", "").upper()
+                        if conf > confianza_max:
+                            confianza_max = conf
+                            texto_placa = limpio
+            
+            # Limpiamos EasyOCR también
+            del reader
+            del easyocr
+            gc.collect()
 
         return jsonify({
             'placa': texto_placa,
@@ -63,6 +81,8 @@ def analizar_placa():
         }), 200
 
     except Exception as e:
+        # En caso de error, intentar limpiar memoria
+        gc.collect()
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
