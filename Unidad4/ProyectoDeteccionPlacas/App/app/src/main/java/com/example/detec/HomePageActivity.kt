@@ -1,10 +1,10 @@
 package com.example.detec
 
 import android.os.Bundle
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.AddCircle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -19,7 +19,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -40,135 +39,222 @@ class HomeActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class) // Necesario para componentes nuevos como TopAppBar
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
-    // Estado para controlar si el menú lateral está abierto o cerrado
+fun HomeScreen(
+    onNavigateToProfile: () -> Unit = {},
+    onLogout: () -> Unit = {},
+    onReport: () -> Unit = {}
+) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scope = rememberCoroutineScope() // Para animaciones (abrir/cerrar menú)
+    val scope = rememberCoroutineScope()
 
-    // ESTRUCTURA PRINCIPAL: EL MENÚ LATERAL
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("deTec Menú", modifier = Modifier.padding(16.dp), fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                Divider()
+            ModalDrawerSheet(modifier = Modifier.width(280.dp)) {
+                Spacer(modifier = Modifier.height(24.dp))
 
-                // Opciones del menú lateral
+                Text(
+                    text = "deTec Menú",
+                    modifier = Modifier.padding(start = 16.dp, bottom = 16.dp),
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF6200EE)
+                )
+
+                Divider(modifier = Modifier.padding(bottom = 8.dp))
+
                 NavigationDrawerItem(
-                    label = { Text(text = "Reportes") },
+                    label = { Text(text = "Reportes", fontSize = 16.sp) },
                     selected = true,
                     onClick = { scope.launch { drawerState.close() } },
-                    icon = { Icon(Icons.Default.Home, contentDescription = null) }
+                    icon = { Icon(Icons.Default.Home, contentDescription = "Reportes", tint = Color(0xFF6200EE)) },
+                    modifier = Modifier.padding(vertical = 4.dp)
                 )
+
                 NavigationDrawerItem(
-                    label = { Text(text = "Evidenciar") },
+                    label = { Text(text = "Evidenciar", fontSize = 16.sp) },
                     selected = false,
-                    onClick = { /* Navegar a la cámara */ },
-                    icon = { Icon(painter = painterResource(android.R.drawable.ic_menu_camera), contentDescription = null) }
+                    onClick = { scope.launch { drawerState.close() }
+                              onReport()
+                              },
+                    icon = { Icon(painterResource(android.R.drawable.ic_menu_camera), contentDescription = "Evidenciar", tint = Color.Gray) },
+                    modifier = Modifier.padding(vertical = 4.dp)
                 )
+
                 NavigationDrawerItem(
-                    label = { Text(text = "Polit. Seg") },
+                    label = { Text(text = "Perfil de Usuario", fontSize = 16.sp) },
                     selected = false,
-                    onClick = { /* Navegar a políticas */ },
-                    icon = { Icon(Icons.Default.Info, contentDescription = null) }
-                )
-                NavigationDrawerItem(
-                    label = { Text(text = "Config.") },
-                    selected = false,
-                    onClick = { /* Navegar a config */ },
-                    icon = { Icon(Icons.Default.Settings, contentDescription = null) }
-                )
-            }
-        }
-    ) {
-        // CONTENIDO DE LA PANTALLA (Page 3)
-        Scaffold(
-            // 1. Barra Superior (TopBar) con botón de Menú
-            topBar = {
-                CenterAlignedTopAppBar(
-                    title = { Text("Reportes", fontWeight = FontWeight.Bold) }, // [cite: 16]
-                    // 1. IZQUIERDA: Ícono de Menú
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menú")
-                        }
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        onNavigateToProfile()
                     },
-
-                    // 2. DERECHA: Ícono de Usuario
-                    actions = {
-                        IconButton(onClick = {
-                            /* Aquí navegarías a la pantalla de Perfil */
-                        }) {
-                            Icon(Icons.Default.Person, contentDescription = "Perfil de Usuario", tint = Color.White)
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = Color(0xFF6200EE), // Tu color morado
-                        titleContentColor = Color.White,
-                        navigationIconContentColor = Color.White
-                    )
-                )
-            },
-            // 2. Botón Flotante (FAB) para "Haz un reporte aquí"
-            floatingActionButton = {
-                FloatingActionButton(
-                    onClick = { /* Acción nuevo reporte */ },
-                    containerColor = Color(0xFF6200EE),
-                    contentColor = Color.White
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Crear reporte")
-                }
-            }
-        ) { paddingValues ->
-
-            // 3. Cuerpo de la pantalla (Empty State)
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues) // Importante: Respeta el espacio de la barra superior
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-
-                // Icono de "Caja vacía" o similar
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = null,
-                    modifier = Modifier.size(100.dp),
-                    tint = Color.LightGray
+                    icon = { Icon(Icons.Default.Person, contentDescription = "Perfil", tint = Color.Gray) },
+                    modifier = Modifier.padding(vertical = 4.dp)
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                NavigationDrawerItem(
+                    label = { Text(text = "Políticas de Seguridad", fontSize = 16.sp) },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close() } },
+                    icon = { Icon(Icons.Default.Info, contentDescription = "Políticas", tint = Color.Gray) },
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
 
-                // Texto central
-                Text(
-                    text = "Parece que no hay nada por aqui...\nHaz un reporte aqui",
-                    textAlign = TextAlign.Center,
-                    fontSize = 18.sp,
-                    color = Color.Gray
+                NavigationDrawerItem(
+                    label = { Text(text = "Configuración", fontSize = 16.sp) },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close() } },
+                    icon = { Icon(Icons.Default.Settings, contentDescription = "Configuración", tint = Color.Gray) },
+                    modifier = Modifier.padding(vertical = 4.dp)
                 )
 
                 Spacer(modifier = Modifier.weight(1f))
+                Divider()
 
-                // Footer [cite: 18]
-                Text(
-                    text = "Todos los derechos reservados @deTec",
-                    fontSize = 12.sp,
-                    color = Color.LightGray
+                NavigationDrawerItem(
+                    label = { Text(text = "Cerrar Sesión", fontSize = 16.sp, color = Color.Red) },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        onLogout()
+                    },
+                    icon = { Icon(Icons.Default.Settings, contentDescription = "Cerrar Sesión", tint = Color.Red) },
+                    modifier = Modifier.padding(vertical = 8.dp)
                 )
+
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
+    ) {
+        Scaffold(
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            text = "Reportes",
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            fontSize = 20.sp
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = {
+                            scope.launch {
+                                if (drawerState.isClosed) drawerState.open() else drawerState.close()
+                            }
+                        }) {
+                            Icon(Icons.Default.Menu, contentDescription = "Abrir menú", tint = Color.White, modifier = Modifier.size(28.dp))
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { onNavigateToProfile() }) {
+                            Icon(Icons.Default.Person, contentDescription = "Ir al perfil", tint = Color.White, modifier = Modifier.size(28.dp))
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = Color(0xFF6200EE),
+                        titleContentColor = Color.White,
+                        navigationIconContentColor = Color.White,
+                        actionIconContentColor = Color.White
+                    )
+                )
+            },
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = { onReport() },
+                    containerColor = Color(0xFF6200EE),
+                    contentColor = Color.White,
+                    modifier = Modifier.size(64.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Crear nuevo reporte", modifier = Modifier.size(32.dp))
+                }
+            },
+            content = { paddingValues ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    // Ilustración o Ícono más amigable
+                    Icon(
+                        imageVector = Icons.Default.Home, // O usa un PainterResource si tienes imagen
+                        contentDescription = "Inicio",
+                        modifier = Modifier.size(100.dp),
+                        tint = Color(0xFF6200EE).copy(alpha = 0.2f)
+                    )
+
+                    Spacer(modifier = Modifier.height(30.dp))
+
+                    Text(
+                        text = "¡Bienvenido a deTec!",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF6200EE)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "No tienes reportes recientes.",
+                        textAlign = TextAlign.Center,
+                        fontSize = 16.sp,
+                        color = Color.Gray
+                    )
+
+                    Spacer(modifier = Modifier.height(40.dp))
+
+                    // BOTÓN NORMALIZADO (Estilo ReportActivity)
+                    Button(
+                        onClick = { onReport() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp), // Altura consistente
+                        shape = RoundedCornerShape(12.dp), // Borde consistente
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF6200EE),
+                            contentColor = Color.White
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AddCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "CREAR PRIMER REPORTE",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    // Footer
+                    Text(
+                        text = "Todos los derechos reservados @deTec",
+                        fontSize = 12.sp,
+                        color = Color.LightGray
+                    )
+                }
+            }
+        )
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun HomePreview() {
+fun HomeScreenPreview() {
     DeTECTheme {
-        HomeScreen()
+        HomeScreen(
+            onNavigateToProfile = { println("Navegando a perfil...") },
+            onLogout = { println("Cerrando sesión...") }
+        )
     }
 }

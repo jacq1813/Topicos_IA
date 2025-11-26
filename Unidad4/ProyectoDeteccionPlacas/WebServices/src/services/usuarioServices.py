@@ -15,7 +15,7 @@ def register_user():
             return jsonify({'error': 'Nombre, Correo y Contraseña son requeridos'}), 400
         
         # Verificar si el usuario ya existe
-        if Usuario.query.filter_by(Correo=data['Correo']).first():
+        if Usuario.query.filter_by(correo=data['Correo']).first():
             return jsonify({'error': 'El correo ya está registrado'}), 400
         
         # Hashear contraseña
@@ -47,7 +47,7 @@ def login_user():
         if not data.get('Correo') or not data.get('Contrasena'):
             return jsonify({'error': 'Correo y Contraseña son requeridos'}), 400
         
-        usuario = Usuario.query.filter_by(Correo=data['Correo']).first()
+        usuario = Usuario.query.filter_by(correo=data['Correo']).first()
         
         if usuario and check_password_hash(usuario.Contrasena, data['Contrasena']):
             return jsonify({

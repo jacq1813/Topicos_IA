@@ -1,29 +1,26 @@
 package com.example.detec.network
 
 import com.example.detec.model.*
-import okhttp3.MultipartBody
 import retrofit2.Response
-import retrofit2.http.*
+import retrofit2.http.Body
+import retrofit2.http.POST
 
 interface ApiService {
 
-    // 1. LOGIN
-    @POST("/login")
+    // --- USUARIOS ---
+
+    // Ruta completa: https://.../api/usuarios/login
+    @POST("api/usuarios/login")
     suspend fun login(@Body request: LoginRequest): Response<LoginResponse>
 
-    // 2. REGISTRO
-    @POST("/register")
+    // Ruta completa: https://.../api/usuarios/register
+    @POST("api/usuarios/register")
     suspend fun register(@Body request: RegisterRequest): Response<LoginResponse>
 
-    // 3. ENVIAR FOTO PARA DETECTAR PLACA (Multipart)
-    // Esto enviará la foto al servidor, el servidor corre el modelo y devuelve el texto de la placa
-    @Multipart
-    @POST("/detectar-placa")
-    suspend fun detectPlate(
-        @Part image: MultipartBody.Part
-    ): Response<PlateRecognitionResponse>
 
-    // 4. GUARDAR REPORTE FINAL
-    @POST("/crear-reporte")
-    suspend fun createReport(@Body request: ReportRequest): Response<LoginResponse>
+    // --- REPORTES ---
+
+    // Ruta completa: https://.../api/reportes/
+    @POST("api/reportes/")
+    suspend fun crearReporte(@Body request: ReportRequest): Response<ReportResponse>
 }

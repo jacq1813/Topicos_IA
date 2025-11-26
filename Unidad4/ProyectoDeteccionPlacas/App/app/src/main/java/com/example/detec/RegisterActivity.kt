@@ -1,6 +1,7 @@
 package com.example.detec
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
@@ -14,23 +15,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight.Companion.Bold
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.detec.model.RegisterRequest
+import com.example.detec.network.RetrofitClient
 import com.example.detec.ui.theme.DeTECTheme
+import kotlinx.coroutines.launch
 
 class RegisterActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             DeTECTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     RegisterScreen()
                 }
             }
@@ -39,19 +40,20 @@ class RegisterActivity : ComponentActivity() {
 }
 
 @Composable
-fun RegisterScreen() {
-    // Variables de estado
+fun RegisterScreen(
+    onRegisterSuccess: () -> Unit = {},
+    onNavigateToLogin: () -> Unit = {}
+) {
     var username by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
 
-    // Estado para el scroll por si el teclado tapa los campos
     val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        // --- CAPA 1: FONDO  ---
+    Box(modifier = Modifier.fillMaxSize()) {
         Image(
             painter = painterResource(id = R.drawable.bkg_app),
             contentDescription = null,
@@ -60,7 +62,6 @@ fun RegisterScreen() {
             modifier = Modifier.fillMaxSize()
         )
 
-        // --- CAPA 2: CONTENIDO ---
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -69,115 +70,89 @@ fun RegisterScreen() {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(60.dp))
-
-            // Título
-            Text(
-                text = "deTec",
-                fontSize = 40.sp,
-                color = Color(0xFF6200EE),
-                fontWeight = Bold
-            )
-
+            Text(text = "deTec", fontSize = 40.sp, color = Color(0xFF6200EE), fontWeight = Bold)
             Spacer(modifier = Modifier.height(30.dp))
 
-            // CAMPO 1: USUARIO
+            // Inputs (Igual que tenías)
             OutlinedTextField(
-                value = username,
-                onValueChange = { username = it },
-                shape = RoundedCornerShape(15.dp),
+                value = username, onValueChange = { username = it },
+                shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF6200EE),
-                    unfocusedBorderColor = Color.White,
-                    focusedTextColor = Color.White, // Ojo: revisa si se lee bien con fondo gris
-                    unfocusedContainerColor = Color(0xFFF5F5F5),
+                    focusedBorderColor = Color(0xFF6200EE), unfocusedBorderColor = Color.White,
+                    focusedTextColor = Color.White, unfocusedContainerColor = Color(0xFFF5F5F5).copy(alpha=0.8f)
                 ),
-                label = { Text("Usuario") },
-                placeholder = { Text("Ej: alanquinbel98...") }, // [cite: 9]
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                label = { Text("Usuario") }, modifier = Modifier.fillMaxWidth(), singleLine = true
             )
-
             Spacer(modifier = Modifier.height(15.dp))
 
-            // CAMPO 2: CORREO
             OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                shape = RoundedCornerShape(15.dp),
+                value = email, onValueChange = { email = it },
+                shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF6200EE),
-                    unfocusedBorderColor = Color.White,
-                    focusedTextColor = Color.White,
-                    unfocusedContainerColor = Color(0xFFF5F5F5),
+                    focusedBorderColor = Color(0xFF6200EE), unfocusedBorderColor = Color.White,
+                    focusedTextColor = Color.White, unfocusedContainerColor = Color(0xFFF5F5F5).copy(alpha=0.8f)
                 ),
-                label = { Text("Correo") },
-                placeholder = { Text("Ej: alanquin95@gmai.com...") }, // [cite: 11]
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                label = { Text("Correo") }, modifier = Modifier.fillMaxWidth(), singleLine = true
             )
-
             Spacer(modifier = Modifier.height(15.dp))
 
-            // CAMPO 3: CONTRASEÑA
             OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                shape = RoundedCornerShape(15.dp),
+                value = password, onValueChange = { password = it },
+                shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF6200EE),
-                    unfocusedBorderColor = Color.White,
-                    focusedTextColor = Color.White,
-                    unfocusedContainerColor = Color(0xFFF5F5F5),
+                    focusedBorderColor = Color(0xFF6200EE), unfocusedBorderColor = Color.White,
+                    focusedTextColor = Color.White, unfocusedContainerColor = Color(0xFFF5F5F5).copy(alpha=0.8f)
                 ),
-                label = { Text("Contraseña") },
-                placeholder = { Text("Ej: Alan$1351a_4...") }, // [cite: 13]
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation()
+                label = { Text("Contraseña") }, modifier = Modifier.fillMaxWidth(),
+                singleLine = true, visualTransformation = PasswordVisualTransformation()
             )
-
             Spacer(modifier = Modifier.height(25.dp))
 
-            // BOTÓN: REGISTRARSE
+            // BOTÓN CON LÓGICA DE CONEXIÓN
             Button(
                 onClick = {
-                          /* Lógica de registro */
-                          },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF6200EE),
-                    contentColor = Color.White
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
+                    if (username.isNotEmpty() && email.isNotEmpty() && password.isNotEmpty()) {
+                        isLoading = true
+                        scope.launch {
+                            try {
+                                val request = RegisterRequest(username, email, password)
+                                val response = RetrofitClient.apiService.register(request)
+
+                                if (response.isSuccessful && response.body()?.usuario != null) {
+                                    val user = response.body()?.usuario!!
+                                    val session = SessionManager(context)
+                                    session.saveUser(user.id, user.nombre, user.correo)
+                                    Toast.makeText(context, "Registro exitoso", Toast.LENGTH_SHORT).show()
+                                    onRegisterSuccess()
+                                } else {
+                                    // CORRECCIÓN: Leer el error real del servidor
+                                    val errorJson = response.errorBody()?.string()
+                                    // Nota: errorJson será algo comoString {"error": "El correo ya está registrado"}
+                                    // Para simplificar, mostramos el texto crudo o un mensaje genérico si falla al leer
+                                    Toast.makeText(context, "Error: $errorJson", Toast.LENGTH_LONG).show()
+                                }
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Error de red: ${e.message}", Toast.LENGTH_SHORT).show()
+                            } finally {
+                                isLoading = false
+                            }
+                        }
+                    } else {
+                        Toast.makeText(context, "Llena todos los campos", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6200EE), contentColor = Color.White),
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                enabled = !isLoading
             ) {
-                Text(text = "Registrarse", fontSize = 18.sp)
+                if (isLoading) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                else Text(text = "Registrarse", fontSize = 18.sp)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-
-            TextButton(onClick = {
-            /* Navegar al Login */
-            })
-            {
+            TextButton(onClick = { onNavigateToLogin() }) {
                 Text(text = "¿Ya tienes cuenta? Inicia sesión", color = Color.White)
             }
-            Spacer(modifier = Modifier.weight(1f))
-            // Footer
-            Text(
-                text = "Todos los derechos reservados @deTec",
-                fontSize = 12.sp,
-                color = Color.LightGray,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun RegisterPreview() {
-    DeTECTheme {
-        RegisterScreen()
     }
 }
