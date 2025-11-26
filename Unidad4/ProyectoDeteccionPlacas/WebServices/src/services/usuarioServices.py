@@ -11,11 +11,11 @@ def register_user():
         data = request.get_json()
         
         # Validar datos requeridos
-        if not data.get('nombre') or not data.get('correo') or not data.get('Contrasena'):
+        if not data.get('Nombre') or not data.get('Correo') or not data.get('Contrasena'):
             return jsonify({'error': 'Nombre, Correo y Contraseña son requeridos'}), 400
         
         # Verificar si el usuario ya existe
-        if Usuario.query.filter_by(correo=data['correo']).first():
+        if Usuario.query.filter_by(correo=data['Correo']).first():
             return jsonify({'error': 'El correo ya está registrado'}), 400
         
         # Hashear contraseña
@@ -23,8 +23,8 @@ def register_user():
         
         # Crear usuario
         nuevo_usuario = Usuario(
-            nombre=data['nombre'],
-            correo=data['correo'],
+            nombre=data['Nombre'],
+            correo=data['Correo'],
             contrasena=hashed_password
         )
         
@@ -44,7 +44,7 @@ def login_user():
     try:
         data = request.get_json()
         
-        if not data.get('correo') or not data.get('contrasena'):
+        if not data.get('Correo') or not data.get('Contrasena'):
             return jsonify({'error': 'Correo y Contraseña son requeridos'}), 400
         
         usuario = Usuario.query.filter_by(correo=data['correo']).first()
