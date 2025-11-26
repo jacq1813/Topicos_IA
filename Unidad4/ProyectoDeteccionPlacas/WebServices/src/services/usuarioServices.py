@@ -47,7 +47,7 @@ def login_user():
         if not data.get('Correo') or not data.get('Contrasena'):
             return jsonify({'error': 'Correo y Contraseña son requeridos'}), 400
         
-        usuario = Usuario.query.filter_by(correo=data['correo']).first()
+        usuario = Usuario.query.filter_by(correo=data['Correo']).first()
         
         if usuario and check_password_hash(usuario.Contrasena, data['Contrasena']):
             return jsonify({
