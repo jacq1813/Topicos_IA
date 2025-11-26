@@ -10,22 +10,18 @@ def register_user():
     try:
         data = request.get_json()
         
-        # Validar datos requeridos
         if not data.get('Nombre') or not data.get('Correo') or not data.get('Contrasena'):
             return jsonify({'error': 'Nombre, Correo y Contraseña son requeridos'}), 400
         
-        # Verificar si el usuario ya existe
         if Usuario.query.filter_by(correo=data['Correo']).first():
             return jsonify({'error': 'El correo ya está registrado'}), 400
         
-        # Hashear contraseña
         hashed_password = generate_password_hash(data['Contrasena'])
         
-        # Crear usuario
         nuevo_usuario = Usuario(
-            nombre=data['Nombre'],
-            correo=data['Correo'],
-            contrasena=hashed_password
+            Nombre=data['Nombre'],      # <--- Nombre con N mayúscula
+            Correo=data['Correo'],      # <--- Correo con C mayúscula
+            Contrasena=hashed_password  # <--- Contrasena con C mayúscula
         )
         
         db.session.add(nuevo_usuario)
@@ -44,12 +40,15 @@ def login_user():
     try:
         data = request.get_json()
         
+        # Validación correcta (Android envía Mayúsculas)
         if not data.get('Correo') or not data.get('Contrasena'):
             return jsonify({'error': 'Correo y Contraseña son requeridos'}), 400
         
+        # Filtro correcto (Columna BD es minúscula, dato Android es Mayúscula)
         usuario = Usuario.query.filter_by(correo=data['Correo']).first()
         
-        if usuario and check_password_hash(usuario.Contrasena, data['Contrasena']):
+        # CAMBIO AQUÍ: usuario.contrasena debe ser minúscula
+        if usuario and check_password_hash(usuario.contrasena, data['Contrasena']):
             return jsonify({
                 'message': 'Login exitoso',
                 'Usuario': usuario.to_dict()
@@ -59,7 +58,7 @@ def login_user():
             
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
+    
 @user_bp.route('/', methods=['GET'])
 def get_users():
     try:
