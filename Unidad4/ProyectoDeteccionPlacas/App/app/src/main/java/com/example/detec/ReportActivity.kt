@@ -41,6 +41,9 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
 import java.util.Date
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import java.io.FileOutputStream
 
 class ReportActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,27 +71,51 @@ fun ReportScreen(onNavigateBack: () -> Unit = {}, onReport: () -> Unit) {
     val session = SessionManager(context)
 
     // --- 1. PREPARAR CÁMARA ---
-    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
         if (success && currentPhotoFile != null) {
             hasCapturedPhoto = true
             detectedPlate = "Procesando..."
             isLoading = true
+
             scope.launch {
                 try {
-                    val file = currentPhotoFile!!
-                    val requestFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
-                    val body = MultipartBody.Part.createFormData("imagen", file.name, requestFile)
+                    // --- TRUCO: COMPRIMIR IMAGEN ANTES DE ENVIAR ---
+                    // Esto reduce la foto de 5MB a 200KB. El servidor te lo agradecerá.
+                    val originalFile = currentPhotoFile!!
 
-                    // LLAMADA A LA IA
+                    // 1. Cargar la imagen en memoria reducida (Scale)
+                    val bitmap = BitmapFactory.decodeFile(originalFile.absolutePath)
+
+                    // 2. Redimensionar si es muy grande (máx 800px)
+                    val aspectRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
+                    val width = 800
+                    val height = (width / aspectRatio).toInt()
+                    val resizedBitmap = Bitmap.createScaledBitmap(bitmap, width, height, false)
+
+                    // 3. Sobrescribir el archivo con la versión ligera
+                    val outStream = FileOutputStream(originalFile)
+                    resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 80, outStream) // Calidad 80%
+                    outStream.flush()
+                    outStream.close()
+                    // -----------------------------------------------
+
+                    val requestFile = originalFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
+                    val body = MultipartBody.Part.createFormData("imagen", originalFile.name, requestFile)
+
                     val response = RetrofitClient.apiServiceIA.analizarPlaca(body)
+
                     if (response.isSuccessful) {
                         detectedPlate = response.body()?.placa ?: "No legible"
-                        if (detectedPlate == "NODETECTADO") detectedPlate = "Intente de nuevo"
+                        if (detectedPlate == "No detectada" || detectedPlate == "NODETECTADO") {
+                            detectedPlate = "Intente de nuevo"
+                        }
                     } else {
                         detectedPlate = "Error Servidor IA"
                     }
                 } catch (e: Exception) {
-                    detectedPlate = "Error Red: ${e.message}"
+                    detectedPlate = "Error Red"
                     e.printStackTrace()
                 } finally {
                     isLoading = false
