@@ -62,7 +62,16 @@ def get_reporte(reporte_id):
 @reporte_bp.route('/placa/<string:num_placa>', methods=['GET'])
 def get_reportes_por_placa(num_placa):
     try:
-        reportes = Reporte.query.filter_by(NumPlaca=num_placa).all()
+        reportes = Reporte.query.filter_by(numplaca=num_placa).all()
+        return jsonify([reporte.to_dict() for reporte in reportes]), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+#url de api: /api/reportes/usuario/<int:usuario_id> 
+@reporte_bp.route('/usuario/<int:usuario_id>', methods=['GET'])
+def get_reportes_por_usuario(usuario_id):
+    try:
+        reportes = Reporte.query.filter_by(usuarioid=usuario_id).all()
         return jsonify([reporte.to_dict() for reporte in reportes]), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
