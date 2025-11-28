@@ -1,20 +1,58 @@
 package com.example.detec
 
 import android.os.Bundle
+import android.util.Log // Importar Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.lifecycleScope // Importar lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.detec.ui.theme.DeTECTheme
+import kotlinx.coroutines.Dispatchers // Importar Dispatchers
+import kotlinx.coroutines.launch     // Importar launch
+import okhttp3.OkHttpClient          // Asumiendo que usas OkHttp
+import okhttp3.Request               // Asumiendo que usas OkHttp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // 1. LLAMADA AL DESPERTADOR
+        // Se ejecuta apenas abre la app, en segundo plano.
+        despertarServidor() // <--- AGREGAR ESTA LÍNEA
+
         setContent {
             DeTECTheme {
                 AppNavigation()
+            }
+        }
+    }
+
+    // 2. FUNCIÓN PARA DESPERTAR (Pégala dentro de la clase MainActivity, antes o después de onCreate)
+    private fun despertarServidor() {
+        // Usamos lifecycleScope para lanzar una corrutina que muere si cierran la app
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                Log.d("API_WAKEUP", "Intentando despertar al servidor...")
+
+                // TU URL DE HUGGING FACE AQUÍ
+                // (No importa si da error 404 o 500, lo importante es que llegue la petición)
+                val url = "https://tu-espacio-usuario.hf.space/"
+
+                val client = OkHttpClient()
+                val request = Request.Builder()
+                    .url(url)
+                    .build()
+
+                // Ejecutamos la llamada (no necesitamos leer la respuesta)
+                client.newCall(request).execute()
+
+                Log.d("API_WAKEUP", "Servidor contactado exitosamente (Ping enviado)")
+            } catch (e: Exception) {
+                // Si falla por internet o timeout, no pasa nada, es silencioso
+                Log.e("API_WAKEUP", "Error al intentar despertar: ${e.message}")
             }
         }
     }

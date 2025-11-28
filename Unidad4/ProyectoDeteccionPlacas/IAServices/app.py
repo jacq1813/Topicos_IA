@@ -82,6 +82,7 @@ def analizar_placa():
                             if len(limpio) > 3 and conf > confianza_max:
                                 confianza_max = conf
                                 texto_placa = limpio
+                            print(f"🔍 Texto detectado: {limpio} (Confianza OCR: {prob:.2f}, Confianza YOLO: {conf:.2f})")
                 except Exception as e_ocr:
                     print(f"Error leyendo recorte: {e_ocr}")
             

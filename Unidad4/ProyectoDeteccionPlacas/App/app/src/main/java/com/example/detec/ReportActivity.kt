@@ -2,8 +2,11 @@ package com.example.detec
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log // <--- Importante para logs
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -12,12 +15,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,31 +33,56 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.lifecycle.lifecycleScope // <--- Necesario para el despertador
 import com.example.detec.model.ReportRequest
 import com.example.detec.network.RetrofitClient
 import com.example.detec.ui.theme.DeTECTheme
+import kotlinx.coroutines.Dispatchers // <--- Necesario para hilos de fondo
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext // <--- Para cambiar de hilo
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
+import okhttp3.OkHttpClient // <--- Cliente para el despertador
+import okhttp3.Request      // <--- Request para el despertador
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
-import java.util.Date
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import java.io.FileOutputStream
+import java.util.Date
 
 class ReportActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // 1. EL DESPERTADOR ⏰
+        // Esto envía una señal a Hugging Face apenas se crea la pantalla
+        despertarServidor()
+
         setContent {
             DeTECTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     ReportScreen(onReport = { finish() }, onNavigateBack = { finish() })
                 }
+            }
+        }
+    }
+
+    // Función para despertar a Hugging Face
+    private fun despertarServidor() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                // Pon aquí tu URL base de Hugging Face
+                val url = "https://tu-space-usuario.hf.space/"
+                val client = OkHttpClient()
+                val request = Request.Builder().url(url).build()
+                client.newCall(request).execute()
+                Log.d("IA_WAKEUP", "Ping enviado al servidor")
+            } catch (e: Exception) {
+                Log.e("IA_WAKEUP", "Fallo silencioso al despertar: ${e.message}")
             }
         }
     }
@@ -68,7 +98,7 @@ fun ReportScreen(onNavigateBack: () -> Unit = {}, onReport: () -> Unit) {
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val session = SessionManager(context)
+    val session = SessionManager(context) // Asegúrate de tener esta clase o borrar esto si no la usas aquí
 
     // --- 1. PREPARAR CÁMARA ---
     val cameraLauncher = rememberLauncherForActivityResult(
@@ -79,52 +109,60 @@ fun ReportScreen(onNavigateBack: () -> Unit = {}, onReport: () -> Unit) {
             detectedPlate = "Procesando..."
             isLoading = true
 
-            scope.launch {
+            // 2. CORRECCIÓN IMPORTANTE: Dispatchers.IO 🚀
+            // Usamos Dispatchers.IO para que la compresión y la red no congelen la pantalla
+            scope.launch(Dispatchers.IO) {
                 try {
-                    // --- TRUCO: COMPRIMIR IMAGEN ANTES DE ENVIAR ---
-                    // Esto reduce la foto de 5MB a 200KB. El servidor te lo agradecerá.
+                    // --- COMPRIMIR IMAGEN ---
                     val originalFile = currentPhotoFile!!
-
-                    // 1. Cargar la imagen en memoria reducida (Scale)
                     val bitmap = BitmapFactory.decodeFile(originalFile.absolutePath)
 
-                    // 2. Redimensionar si es muy grande (máx 800px)
+                    // Calculamos nuevas dimensiones
                     val aspectRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
                     val width = 800
                     val height = (width / aspectRatio).toInt()
+
                     val resizedBitmap = Bitmap.createScaledBitmap(bitmap, width, height, false)
 
-                    // 3. Sobrescribir el archivo con la versión ligera
+                    // Sobrescribimos el archivo con la versión ligera
                     val outStream = FileOutputStream(originalFile)
-                    resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 80, outStream) // Calidad 80%
+                    resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 70, outStream) // Calidad 70 es suficiente
                     outStream.flush()
                     outStream.close()
-                    // -----------------------------------------------
 
+                    // --- ENVIAR A IA ---
                     val requestFile = originalFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
                     val body = MultipartBody.Part.createFormData("imagen", originalFile.name, requestFile)
 
                     val response = RetrofitClient.apiServiceIA.analizarPlaca(body)
 
-                    if (response.isSuccessful) {
-                        detectedPlate = response.body()?.placa ?: "No legible"
-                        if (detectedPlate == "No detectada" || detectedPlate == "NODETECTADO") {
-                            detectedPlate = "Intente de nuevo"
+                    // Volvemos al Hilo Principal (Main) para actualizar la UI
+                    withContext(Dispatchers.Main) {
+                        if (response.isSuccessful) {
+                            val placaDetectada = response.body()?.placa ?: ""
+                            detectedPlate = if (placaDetectada == "NODETECTADO") "" else placaDetectada
+                        } else {
+                            detectedPlate = ""
+                            Toast.makeText(context, "No se detectó placa, ingrésela manualmente", Toast.LENGTH_SHORT).show()
                         }
-                    } else {
-                        detectedPlate = "Error Servidor IA"
                     }
                 } catch (e: Exception) {
-                    detectedPlate = "Error Red"
-                    e.printStackTrace()
+                    withContext(Dispatchers.Main) {
+                        detectedPlate = ""
+                        e.printStackTrace()
+                        Toast.makeText(context, "Error de conexión con IA", Toast.LENGTH_SHORT).show()
+                    }
                 } finally {
-                    isLoading = false
+                    withContext(Dispatchers.Main) {
+                        isLoading = false
+                    }
                 }
             }
         }
     }
 
-    // --- 2. FUNCIÓN PARA CREAR ARCHIVO TEMPORAL ---
+    // ... (El resto de tu código: createImageFile, permissionLauncher, UI, etc. sigue igual)
+
     fun createImageFile(): File {
         val storageDir = context.getExternalFilesDir(null)
         return File.createTempFile("JPEG_${Date().time}_", ".jpg", storageDir).apply {
@@ -132,12 +170,10 @@ fun ReportScreen(onNavigateBack: () -> Unit = {}, onReport: () -> Unit) {
         }
     }
 
-    // --- 3. GESTOR DE PERMISOS (NUEVO) ---
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         if (isGranted) {
-            // Si el usuario dice SÍ, abrimos la cámara inmediatamente
             val file = createImageFile()
-            val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+            val uri = FileProvider.getUriForFile(context, "com.example.detec.provider", file)
             currentPhotoUri = uri
             cameraLauncher.launch(uri)
         } else {
@@ -145,36 +181,49 @@ fun ReportScreen(onNavigateBack: () -> Unit = {}, onReport: () -> Unit) {
         }
     }
 
+    // ... (Tu UI de if(hasCapturedPhoto) ... sigue igual)
     if (hasCapturedPhoto) {
-        ReportScreenWithImage(
+        ReportFormScreen(
+            detectedPlate = detectedPlate,
+            imageFile = currentPhotoFile,
+            isLoadingIA = isLoading,
             onNavigateBack = { hasCapturedPhoto = false },
             onRetakePhoto = { hasCapturedPhoto = false },
-            imageDescription = detectedPlate,
-            onConfirmPhoto = {
-                if (!isLoading && detectedPlate != "Error Red" && detectedPlate != "Analizando...") {
-                    isLoading = true
-                    scope.launch {
-                        try {
-                            val userId = session.getUserId()
-                            val nuevoReporte = ReportRequest(
-                                usuarioId = userId,
-                                numPlaca = detectedPlate,
-                                descripcion = "Reporte automático",
-                                coordenadas = "24.80, -107.40"
-                            )
-                            val response = RetrofitClient.apiService.crearReporte(nuevoReporte)
+            onConfirmReport = { finalPlate, finalDesc ->
+                // LOGICA DE ENVIO FINAL A LA BD
+                isLoading = true
+                scope.launch(Dispatchers.IO) { // <--- También aquí usa IO
+                    try {
+                        val idObtenido = session.getUserId()
+                        val userId = if (idObtenido is Int) idObtenido else 0
+                        val nuevoReporte = ReportRequest(
+                            usuarioId = userId,
+                            numPlaca = finalPlate,
+                            descripcion = finalDesc,
+                            coordenadas = "24.80, -107.40",
+                            imgEvidencia = "foto_evidencia.jpg"
+                        )
+
+                        val response = RetrofitClient.apiService.crearReporte(nuevoReporte)
+
+                        withContext(Dispatchers.Main) {
                             if (response.isSuccessful) {
-                                Toast.makeText(context, "¡Reporte enviado!", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "¡Reporte enviado con éxito!", Toast.LENGTH_LONG).show()
                                 onReport()
                             } else {
-                                Toast.makeText(context, "Error al guardar", Toast.LENGTH_SHORT).show()
+                                val errorBody = response.errorBody()?.string()
+                                Toast.makeText(context, "Error: $errorBody", Toast.LENGTH_LONG).show()
                             }
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
-                        } finally { isLoading = false }
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Error de red: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    } finally {
+                        withContext(Dispatchers.Main) {
+                            isLoading = false
+                        }
                     }
-                } else {
-                    Toast.makeText(context, "Espere un momento...", Toast.LENGTH_SHORT).show()
                 }
             }
         )
@@ -182,16 +231,13 @@ fun ReportScreen(onNavigateBack: () -> Unit = {}, onReport: () -> Unit) {
         ReportCaptureView(
             onNavigateBack = onNavigateBack,
             onTakePhoto = {
-                // VERIFICAR PERMISO ANTES DE ABRIR CÁMARA
                 val permissionCheck = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
                 if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
-                    // Si ya tiene permiso, abre cámara
                     val file = createImageFile()
-                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+                    val uri = FileProvider.getUriForFile(context, "com.example.detec.provider", file)
                     currentPhotoUri = uri
                     cameraLauncher.launch(uri)
                 } else {
-                    // Si no, pide permiso
                     permissionLauncher.launch(Manifest.permission.CAMERA)
                 }
             },
@@ -200,8 +246,128 @@ fun ReportScreen(onNavigateBack: () -> Unit = {}, onReport: () -> Unit) {
     }
 }
 
-// --- VISTAS AUXILIARES (IGUAL QUE ANTES) ---
+// ... (El resto de tus Composables ReportFormScreen y ReportCaptureView siguen igual)
+@Composable
+fun ReportFormScreen(
+    detectedPlate: String,
+    imageFile: File?,
+    isLoadingIA: Boolean,
+    onNavigateBack: () -> Unit,
+    onRetakePhoto: () -> Unit,
+    onConfirmReport: (String, String) -> Unit
+) {
+    // Estados para los campos editables
+    var plateInput by remember { mutableStateOf(detectedPlate) }
+    var descriptionInput by remember { mutableStateOf("") }
 
+    // Actualizar el campo de placa cuando la IA termine
+    LaunchedEffect(detectedPlate) {
+        if (detectedPlate != "Analizando..." && detectedPlate != "Procesando...") {
+            plateInput = detectedPlate
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()), // Habilitar scroll
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Completar Reporte", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color(0xFF6200EE))
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Imagen
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .clip(RoundedCornerShape(12.dp))
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.bkg_app), // Placeholder
+                contentDescription = "Evidencia",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+            // Si tuvieramos Coil usariamos imageFile aqui
+
+            if (isLoadingIA) {
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Color.White)
+                    Text("Analizando placa...", color = Color.White, modifier = Modifier.padding(top = 50.dp))
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // CAMPO 1: PLACA (Editable)
+        OutlinedTextField(
+            value = plateInput,
+            onValueChange = { plateInput = it.uppercase() }, // Forzar mayúsculas
+            label = { Text("Número de Placa") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFF6200EE),
+                focusedLabelColor = Color(0xFF6200EE)
+            ),
+            singleLine = true,
+            enabled = !isLoadingIA // Bloquear mientras la IA piensa
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // CAMPO 2: DESCRIPCIÓN
+        OutlinedTextField(
+            value = descriptionInput,
+            onValueChange = { descriptionInput = it },
+            label = { Text("Motivo del reporte / Descripción") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp), // Más alto para escribir
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFF6200EE),
+                focusedLabelColor = Color(0xFF6200EE)
+            ),
+            maxLines = 5,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
+        )
+
+        Spacer(modifier = Modifier.height(30.dp))
+
+        // BOTONES
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            OutlinedButton(
+                onClick = { onRetakePhoto() },
+                modifier = Modifier.weight(1f).height(50.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) { Text("Reintentar") }
+
+            Button(
+                onClick = {
+                    if (plateInput.isNotEmpty() && descriptionInput.isNotEmpty()) {
+                        onConfirmReport(plateInput, descriptionInput)
+                    } else {
+                        // Mensaje simple si falta algo
+                    }
+                },
+                modifier = Modifier.weight(1f).height(50.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                enabled = !isLoadingIA && plateInput.isNotEmpty() && descriptionInput.isNotEmpty()
+            ) { Text("ENVIAR") }
+        }
+    }
+}
+
+// 3. VISTA CAPTURA (Sin cambios, solo la agrego para que compile todo junto)
 @Composable
 fun ReportCaptureView(onNavigateBack: () -> Unit, onTakePhoto: () -> Unit, onSelectFromGallery: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -228,33 +394,5 @@ fun ReportCaptureView(onNavigateBack: () -> Unit, onTakePhoto: () -> Unit, onSel
             Icon(Icons.Default.CameraAlt, null); Spacer(modifier = Modifier.width(12.dp)); Text("TOMAR FOTO", fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.height(24.dp))
-    }
-}
-
-@Composable
-fun ReportScreenWithImage(onNavigateBack: () -> Unit, onRetakePhoto: () -> Unit, onConfirmPhoto: () -> Unit, imageDescription: String) {
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("Confirmar Evidencia", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF6200EE))
-        Spacer(modifier = Modifier.height(20.dp))
-        Box(modifier = Modifier.fillMaxWidth().height(300.dp).clip(RoundedCornerShape(16.dp))) {
-            Image(painter = painterResource(id = R.drawable.bkg_app), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            if (imageDescription == "Procesando..." || imageDescription == "Analizando...") {
-                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Color.White)
-                }
-            }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8))) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Placa detectada:", fontSize = 14.sp, color = Color.Gray)
-                Text(imageDescription, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4CAF50))
-            }
-        }
-        Spacer(modifier = Modifier.weight(1f))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            OutlinedButton(onClick = { onRetakePhoto() }, modifier = Modifier.weight(1f).height(56.dp), shape = RoundedCornerShape(12.dp)) { Text("REINTENTAR") }
-            Button(onClick = { onConfirmPhoto() }, modifier = Modifier.weight(1f).height(56.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)), enabled = imageDescription != "Procesando..." && imageDescription != "Analizando...") { Text("CONFIRMAR") }
-        }
     }
 }

@@ -9,7 +9,7 @@ object RetrofitClient {
     // ESTA ES LA URL DE TU PROYECTO EN RENDER
     private const val BASE_URL = "https://webservicesplatesdetectord.onrender.com/"
 
-    private const val BASE_URL_IA = "https://ia-placas-service.onrender.com"
+    private const val BASE_URL_IA = "https://jacq13-ia-placas-detect.hf.space"
 
     // Cliente lento (con mucha paciencia) para la IA
     // Como tu IA carga los modelos en cada petición, tardará unos 15-20 segundos.

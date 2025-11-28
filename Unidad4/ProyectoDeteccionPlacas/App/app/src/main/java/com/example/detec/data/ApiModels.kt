@@ -41,6 +41,14 @@ data class ReportRequest(
     @SerializedName("ImgEvidencia") val imgEvidencia: String? = null // Opcional por ahora
 )
 
+data class ReporteData(
+    @SerializedName("ReporteID") val id: Int,
+    @SerializedName("NumPlaca") val numPlaca: String,
+    @SerializedName("Descripcion") val descripcion: String?,
+    @SerializedName("FechaEmision") val fecha: String?,
+    @SerializedName("Coordenadas") val coordenadas: String?
+)
+
 data class ReportResponse(
     val message: String?,
     val error: String?
