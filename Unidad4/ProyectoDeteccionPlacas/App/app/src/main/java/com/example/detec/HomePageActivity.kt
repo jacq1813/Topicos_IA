@@ -72,7 +72,6 @@ fun HomeScreen(
             isLoading = false
         }
     }
-
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -81,12 +80,54 @@ fun HomeScreen(
                 Text("deTec Menú", modifier = Modifier.padding(16.dp), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color(0xFF6200EE))
                 Divider(modifier = Modifier.padding(bottom = 8.dp))
 
-                NavigationDrawerItem(label = { Text("Reportes") }, selected = true, onClick = { scope.launch { drawerState.close() } }, icon = { Icon(Icons.Default.Home, null, tint = Color(0xFF6200EE)) }, modifier = Modifier.padding(vertical = 4.dp))
-                NavigationDrawerItem(label = { Text("Evidenciar") }, selected = false, onClick = { scope.launch { drawerState.close() }; onReport() }, icon = { Icon(painterResource(android.R.drawable.ic_menu_camera), null, tint = Color.Gray) }, modifier = Modifier.padding(vertical = 4.dp))
-                NavigationDrawerItem(label = { Text("Cerrar Sesión", color = Color.Red) }, selected = false, onClick = { scope.launch { drawerState.close() }; onLogout() }, icon = { Icon(Icons.Default.ExitToApp, null, tint = Color.Red) }, modifier = Modifier.padding(vertical = 8.dp))
+                // OPCIÓN 1: INICIO
+                NavigationDrawerItem(
+                    label = { Text("Inicio") },
+                    selected = true,
+                    onClick = { scope.launch { drawerState.close() } },
+                    icon = { Icon(Icons.Default.Home, null, tint = Color(0xFF6200EE)) },
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+
+                // --- AGREGAMOS ESTA NUEVA OPCIÓN (PERFIL) ---
+                NavigationDrawerItem(
+                    label = { Text("Mi Perfil") },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        onNavigateToProfile() // <--- Esta función ya la tienes disponible
+                    },
+                    icon = { Icon(Icons.Default.Person, null, tint = Color.Gray) },
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+                // --------------------------------------------
+
+                // OPCIÓN 3: REPORTAR
+                NavigationDrawerItem(
+                    label = { Text("Reportar") },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        onReport()
+                    },
+                    icon = { Icon(painterResource(android.R.drawable.ic_menu_camera), null, tint = Color.Gray) },
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+
+                // OPCIÓN 4: CERRAR SESIÓN
+                NavigationDrawerItem(
+                    label = { Text("Cerrar Sesión", color = Color.Red) },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        onLogout()
+                    },
+                    icon = { Icon(Icons.Default.ExitToApp, null, tint = Color.Red) },
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
             }
         }
-    ) {
+    ){
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(

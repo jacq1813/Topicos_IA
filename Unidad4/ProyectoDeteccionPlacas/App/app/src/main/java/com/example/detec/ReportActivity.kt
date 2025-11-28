@@ -6,7 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
-import android.util.Log // <--- Importante para logs
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -38,28 +38,30 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import androidx.lifecycle.lifecycleScope // <--- Necesario para el despertador
+import androidx.lifecycle.lifecycleScope
 import com.example.detec.model.ReportRequest
 import com.example.detec.network.RetrofitClient
 import com.example.detec.ui.theme.DeTECTheme
-import kotlinx.coroutines.Dispatchers // <--- Necesario para hilos de fondo
+import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext // <--- Para cambiar de hilo
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
-import okhttp3.OkHttpClient // <--- Cliente para el despertador
-import okhttp3.Request      // <--- Request para el despertador
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Date
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 
 class ReportActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 1. EL DESPERTADOR ⏰
-        // Esto envía una señal a Hugging Face apenas se crea la pantalla
+        // Despertar al servidor IA
         despertarServidor()
 
         setContent {
@@ -71,19 +73,15 @@ class ReportActivity : ComponentActivity() {
         }
     }
 
-    // Función para despertar a Hugging Face
     private fun despertarServidor() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // Pon aquí tu URL base de Hugging Face
-                val url = "https://tu-space-usuario.hf.space/"
+                // URL de Hugging Face
+                val url = "https://jacqueline-placas.hf.space/"
                 val client = OkHttpClient()
                 val request = Request.Builder().url(url).build()
                 client.newCall(request).execute()
-                Log.d("IA_WAKEUP", "Ping enviado al servidor")
-            } catch (e: Exception) {
-                Log.e("IA_WAKEUP", "Fallo silencioso al despertar: ${e.message}")
-            }
+            } catch (e: Exception) { Log.e("WakeUp", "Error: ${e.message}") }
         }
     }
 }
@@ -98,9 +96,46 @@ fun ReportScreen(onNavigateBack: () -> Unit = {}, onReport: () -> Unit) {
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val session = SessionManager(context) // Asegúrate de tener esta clase o borrar esto si no la usas aquí
+    val session = SessionManager(context)
 
-    // --- 1. PREPARAR CÁMARA ---
+    // --- LÓGICA GPS ---
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+    // Coordenada default por si falla el GPS
+    var coordenadasGPS by remember { mutableStateOf("24.80, -107.40") }
+
+    // Intentamos obtener ubicación al entrar a la pantalla
+    // En ReportActivity.kt, dentro de ReportScreen
+
+    LaunchedEffect(Unit) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+
+            // Opción 1: Intenta obtener la última conocida (es muy rápida)
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                if (location != null) {
+                    coordenadasGPS = "${location.latitude}, ${location.longitude}"
+                    Log.d("GPS_DETEC", "Ubicación caché: $coordenadasGPS")
+                } else {
+                    // Opción 2 (PLAN B): Si la memoria está vacía (NULL), forzamos búsqueda nueva
+                    // Esto es lo que arregla el problema en tu emulador
+                    Toast.makeText(context, "Activando GPS...", Toast.LENGTH_SHORT).show()
+
+                    // Priority.PRIORITY_HIGH_ACCURACY obliga a usar el GPS real
+                    fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, CancellationTokenSource().token)
+                        .addOnSuccessListener { freshLocation ->
+                            if (freshLocation != null) {
+                                coordenadasGPS = "${freshLocation.latitude}, ${freshLocation.longitude}"
+                                Toast.makeText(context, "📍 Ubicación actual: $coordenadasGPS", Toast.LENGTH_LONG).show()
+                                Log.d("GPS_DETEC", "Ubicación fresca: $coordenadasGPS")
+                            } else {
+                                Log.e("GPS_DETEC", "Imposible detectar ubicación")
+                            }
+                        }
+                }
+            }
+        }
+    }
+
+    // --- CÁMARA ORIGINAL (Intent) ---
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
@@ -109,59 +144,43 @@ fun ReportScreen(onNavigateBack: () -> Unit = {}, onReport: () -> Unit) {
             detectedPlate = "Procesando..."
             isLoading = true
 
-            // 2. CORRECCIÓN IMPORTANTE: Dispatchers.IO 🚀
-            // Usamos Dispatchers.IO para que la compresión y la red no congelen la pantalla
+            // Procesamiento en segundo plano
             scope.launch(Dispatchers.IO) {
                 try {
-                    // --- COMPRIMIR IMAGEN ---
                     val originalFile = currentPhotoFile!!
                     val bitmap = BitmapFactory.decodeFile(originalFile.absolutePath)
 
-                    // Calculamos nuevas dimensiones
+                    // Comprimir imagen antes de enviar
                     val aspectRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
                     val width = 800
                     val height = (width / aspectRatio).toInt()
-
                     val resizedBitmap = Bitmap.createScaledBitmap(bitmap, width, height, false)
-
-                    // Sobrescribimos el archivo con la versión ligera
                     val outStream = FileOutputStream(originalFile)
-                    resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 70, outStream) // Calidad 70 es suficiente
-                    outStream.flush()
-                    outStream.close()
+                    resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 70, outStream)
+                    outStream.flush(); outStream.close()
 
-                    // --- ENVIAR A IA ---
+                    // Enviar a IA (Hugging Face)
                     val requestFile = originalFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
                     val body = MultipartBody.Part.createFormData("imagen", originalFile.name, requestFile)
-
                     val response = RetrofitClient.apiServiceIA.analizarPlaca(body)
 
-                    // Volvemos al Hilo Principal (Main) para actualizar la UI
                     withContext(Dispatchers.Main) {
                         if (response.isSuccessful) {
-                            val placaDetectada = response.body()?.placa ?: ""
-                            detectedPlate = if (placaDetectada == "NODETECTADO") "" else placaDetectada
+                            detectedPlate = response.body()?.placa ?: ""
+                            if (detectedPlate == "NODETECTADO") detectedPlate = ""
                         } else {
                             detectedPlate = ""
-                            Toast.makeText(context, "No se detectó placa, ingrésela manualmente", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "No se detectó placa", Toast.LENGTH_SHORT).show()
                         }
                     }
                 } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        detectedPlate = ""
-                        e.printStackTrace()
-                        Toast.makeText(context, "Error de conexión con IA", Toast.LENGTH_SHORT).show()
-                    }
+                    withContext(Dispatchers.Main) { detectedPlate = "" }
                 } finally {
-                    withContext(Dispatchers.Main) {
-                        isLoading = false
-                    }
+                    withContext(Dispatchers.Main) { isLoading = false }
                 }
             }
         }
     }
-
-    // ... (El resto de tu código: createImageFile, permissionLauncher, UI, etc. sigue igual)
 
     fun createImageFile(): File {
         val storageDir = context.getExternalFilesDir(null)
@@ -170,8 +189,14 @@ fun ReportScreen(onNavigateBack: () -> Unit = {}, onReport: () -> Unit) {
         }
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-        if (isGranted) {
+    // Permisos: Pedimos CÁMARA y UBICACIÓN al mismo tiempo
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val cameraGranted = permissions[Manifest.permission.CAMERA] ?: false
+        val locationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+
+        if (cameraGranted) {
             val file = createImageFile()
             val uri = FileProvider.getUriForFile(context, "com.example.detec.provider", file)
             currentPhotoUri = uri
@@ -179,10 +204,19 @@ fun ReportScreen(onNavigateBack: () -> Unit = {}, onReport: () -> Unit) {
         } else {
             Toast.makeText(context, "Se requiere permiso de cámara", Toast.LENGTH_SHORT).show()
         }
+
+        // Si nos dieron permiso de GPS, actualizamos la coordenada ahora mismo
+        if (locationGranted) {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
+                    if (loc != null) coordenadasGPS = "${loc.latitude}, ${loc.longitude}"
+                }
+            }
+        }
     }
 
-    // ... (Tu UI de if(hasCapturedPhoto) ... sigue igual)
     if (hasCapturedPhoto) {
+        // PANTALLA DE FORMULARIO
         ReportFormScreen(
             detectedPlate = detectedPlate,
             imageFile = currentPhotoFile,
@@ -190,17 +224,19 @@ fun ReportScreen(onNavigateBack: () -> Unit = {}, onReport: () -> Unit) {
             onNavigateBack = { hasCapturedPhoto = false },
             onRetakePhoto = { hasCapturedPhoto = false },
             onConfirmReport = { finalPlate, finalDesc ->
-                // LOGICA DE ENVIO FINAL A LA BD
+                // LOGICA DE ENVIO FINAL
                 isLoading = true
-                scope.launch(Dispatchers.IO) { // <--- También aquí usa IO
+                scope.launch(Dispatchers.IO) {
                     try {
-                        val idObtenido = session.getUserId()
-                        val userId = if (idObtenido is Int) idObtenido else 0
+                        val idUser = session.getUserId()
+                        val userId = if (idUser is Int) idUser else 0
+
+                        // AQUÍ USAMOS LA VARIABLE coordenadasGPS QUE OBTUVIMOS
                         val nuevoReporte = ReportRequest(
                             usuarioId = userId,
                             numPlaca = finalPlate,
                             descripcion = finalDesc,
-                            coordenadas = "24.80, -107.40",
+                            coordenadas = coordenadasGPS,
                             imgEvidencia = "foto_evidencia.jpg"
                         )
 
@@ -208,190 +244,82 @@ fun ReportScreen(onNavigateBack: () -> Unit = {}, onReport: () -> Unit) {
 
                         withContext(Dispatchers.Main) {
                             if (response.isSuccessful) {
-                                Toast.makeText(context, "¡Reporte enviado con éxito!", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "¡Reporte enviado exitosamente!", Toast.LENGTH_LONG).show()
                                 onReport()
                             } else {
-                                val errorBody = response.errorBody()?.string()
-                                Toast.makeText(context, "Error: $errorBody", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "Error servidor: ${response.code()}", Toast.LENGTH_LONG).show()
                             }
                         }
                     } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error de red: ${e.message}", Toast.LENGTH_LONG).show()
-                        }
+                        withContext(Dispatchers.Main) { Toast.makeText(context, "Error de red", Toast.LENGTH_LONG).show() }
                     } finally {
-                        withContext(Dispatchers.Main) {
-                            isLoading = false
-                        }
+                        withContext(Dispatchers.Main) { isLoading = false }
                     }
                 }
             }
         )
     } else {
+        // PANTALLA DE TOMA DE FOTO (Original)
         ReportCaptureView(
             onNavigateBack = onNavigateBack,
             onTakePhoto = {
-                val permissionCheck = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
-                if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
-                    val file = createImageFile()
-                    val uri = FileProvider.getUriForFile(context, "com.example.detec.provider", file)
-                    currentPhotoUri = uri
-                    cameraLauncher.launch(uri)
-                } else {
-                    permissionLauncher.launch(Manifest.permission.CAMERA)
-                }
+                // Lanzamos petición múltiple
+                permissionLauncher.launch(arrayOf(
+                    Manifest.permission.CAMERA,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ))
             },
             onSelectFromGallery = { Toast.makeText(context, "Próximamente", Toast.LENGTH_SHORT).show() }
         )
     }
 }
 
-// ... (El resto de tus Composables ReportFormScreen y ReportCaptureView siguen igual)
+// --- VISTAS AUXILIARES (Tus mismas vistas, sin cambios lógicos) ---
+
 @Composable
-fun ReportFormScreen(
-    detectedPlate: String,
-    imageFile: File?,
-    isLoadingIA: Boolean,
-    onNavigateBack: () -> Unit,
-    onRetakePhoto: () -> Unit,
-    onConfirmReport: (String, String) -> Unit
-) {
-    // Estados para los campos editables
+fun ReportFormScreen(detectedPlate: String, imageFile: File?, isLoadingIA: Boolean, onNavigateBack: () -> Unit, onRetakePhoto: () -> Unit, onConfirmReport: (String, String) -> Unit) {
     var plateInput by remember { mutableStateOf(detectedPlate) }
     var descriptionInput by remember { mutableStateOf("") }
+    LaunchedEffect(detectedPlate) { if (detectedPlate != "Analizando..." && detectedPlate != "Procesando...") plateInput = detectedPlate }
 
-    // Actualizar el campo de placa cuando la IA termine
-    LaunchedEffect(detectedPlate) {
-        if (detectedPlate != "Analizando..." && detectedPlate != "Procesando...") {
-            plateInput = detectedPlate
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()), // Habilitar scroll
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Completar Reporte", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color(0xFF6200EE))
-
         Spacer(modifier = Modifier.height(20.dp))
-
-        // Imagen
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .clip(RoundedCornerShape(12.dp))
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.bkg_app), // Placeholder
-                contentDescription = "Evidencia",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-            // Si tuvieramos Coil usariamos imageFile aqui
-
-            if (isLoadingIA) {
-                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Color.White)
-                    Text("Analizando placa...", color = Color.White, modifier = Modifier.padding(top = 50.dp))
-                }
-            }
+        Box(modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(12.dp))) {
+            Image(painter = painterResource(id = R.drawable.bkg_app), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            if (isLoadingIA) Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.5f)), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color.White) }
         }
-
         Spacer(modifier = Modifier.height(24.dp))
-
-        // CAMPO 1: PLACA (Editable)
-        OutlinedTextField(
-            value = plateInput,
-            onValueChange = { plateInput = it.uppercase() }, // Forzar mayúsculas
-            label = { Text("Número de Placa") },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF6200EE),
-                focusedLabelColor = Color(0xFF6200EE)
-            ),
-            singleLine = true,
-            enabled = !isLoadingIA // Bloquear mientras la IA piensa
-        )
-
+        OutlinedTextField(value = plateInput, onValueChange = { plateInput = it.uppercase() }, label = { Text("Número de Placa") }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !isLoadingIA)
         Spacer(modifier = Modifier.height(16.dp))
-
-        // CAMPO 2: DESCRIPCIÓN
-        OutlinedTextField(
-            value = descriptionInput,
-            onValueChange = { descriptionInput = it },
-            label = { Text("Motivo del reporte / Descripción") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp), // Más alto para escribir
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF6200EE),
-                focusedLabelColor = Color(0xFF6200EE)
-            ),
-            maxLines = 5,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
-        )
-
+        OutlinedTextField(value = descriptionInput, onValueChange = { descriptionInput = it }, label = { Text("Descripción") }, modifier = Modifier.fillMaxWidth().height(120.dp), maxLines = 5)
         Spacer(modifier = Modifier.height(30.dp))
-
-        // BOTONES
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            OutlinedButton(
-                onClick = { onRetakePhoto() },
-                modifier = Modifier.weight(1f).height(50.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) { Text("Reintentar") }
-
-            Button(
-                onClick = {
-                    if (plateInput.isNotEmpty() && descriptionInput.isNotEmpty()) {
-                        onConfirmReport(plateInput, descriptionInput)
-                    } else {
-                        // Mensaje simple si falta algo
-                    }
-                },
-                modifier = Modifier.weight(1f).height(50.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
-                enabled = !isLoadingIA && plateInput.isNotEmpty() && descriptionInput.isNotEmpty()
-            ) { Text("ENVIAR") }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            OutlinedButton(onClick = onRetakePhoto, modifier = Modifier.weight(1f)) { Text("Reintentar") }
+            Button(onClick = { if(plateInput.isNotEmpty() && descriptionInput.isNotEmpty()) onConfirmReport(plateInput, descriptionInput) }, modifier = Modifier.weight(1f), enabled = !isLoadingIA, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))) { Text("ENVIAR") }
         }
     }
 }
 
-// 3. VISTA CAPTURA (Sin cambios, solo la agrego para que compile todo junto)
 @Composable
 fun ReportCaptureView(onNavigateBack: () -> Unit, onTakePhoto: () -> Unit, onSelectFromGallery: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { onNavigateBack() }, modifier = Modifier.size(48.dp)) {
-                Icon(Icons.Default.ArrowBack, "Volver", tint = Color(0xFF6200EE), modifier = Modifier.size(28.dp))
-            }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onNavigateBack) { Icon(Icons.Default.ArrowBack, null, tint = Color(0xFF6200EE)) }
             Spacer(modifier = Modifier.weight(1f))
             Text("Nuevo Reporte", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF6200EE))
-            Spacer(modifier = Modifier.weight(1f))
-            Box(modifier = Modifier.size(48.dp))
+            Spacer(modifier = Modifier.weight(1f)); Box(modifier = Modifier.size(48.dp))
         }
         Spacer(modifier = Modifier.height(20.dp))
-        Box(modifier = Modifier.fillMaxWidth().height(250.dp).clip(RoundedCornerShape(16.dp))) {
-            Image(painter = painterResource(id = R.drawable.bkg_app), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)))
-            Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Box(modifier = Modifier.fillMaxWidth().height(250.dp).clip(RoundedCornerShape(16.dp)).background(Color.Black)) {
+            Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(Icons.Default.PhotoCamera, null, tint = Color.White, modifier = Modifier.size(60.dp))
-                Text("Cámara lista", fontSize = 18.sp, color = Color.White)
+                Text("Cámara lista", color = Color.White)
             }
         }
         Spacer(modifier = Modifier.weight(1f))
-        Button(onClick = { onTakePhoto() }, modifier = Modifier.fillMaxWidth(0.9f).height(56.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6200EE))) {
-            Icon(Icons.Default.CameraAlt, null); Spacer(modifier = Modifier.width(12.dp)); Text("TOMAR FOTO", fontWeight = FontWeight.Bold)
+        Button(onClick = onTakePhoto, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6200EE))) {
+            Icon(Icons.Default.CameraAlt, null); Spacer(modifier = Modifier.width(12.dp)); Text("TOMAR FOTO")
         }
         Spacer(modifier = Modifier.height(24.dp))
     }

@@ -70,11 +70,18 @@ dependencies {
     // COROUTINES - ESENCIAL (soluciona los errores de CoroutineContext)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
+
     // Retrofit
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0") // Versión actualizada
+    implementation("androidx.camera:camera-core:1.3.0")
+    implementation("androidx.camera:camera-camera2:1.3.0")
+    implementation("androidx.camera:camera-lifecycle:1.3.0")
+    implementation("androidx.camera:camera-view:1.3.0")
 
+    // 2. PARA LA UBICACIÓN (GPS)
+    implementation("com.google.android.gms:play-services-location:21.0.1")
     // Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
