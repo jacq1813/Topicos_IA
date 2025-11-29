@@ -49,3 +49,9 @@ Recibe una imagen binaria, ejecuta la inferencia y devuelve el texto detectado.
   "confianza": 0.89
 }
 ```
+
+## Autores
+
+- [@Peña Lopez Miguel Angel](https://github.com/KingSplatt)
+
+- [@Robles Rios Jacquelin](https://github.com/jacq1813)

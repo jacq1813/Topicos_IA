@@ -58,7 +58,8 @@ Backend: Python, Render.
 
 Nube: Hugging Face Spaces, Render/Azure.
 
-### Desarrollado por:
+## Autores
 
-Jacquelin Robles
-Miguel Angel Peña Lopez
+- [@Peña Lopez Miguel Angel](https://github.com/KingSplatt)
+
+- [@Robles Rios Jacquelin](https://github.com/jacq1813)

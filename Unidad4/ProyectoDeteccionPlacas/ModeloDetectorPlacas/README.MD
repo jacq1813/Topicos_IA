@@ -97,10 +97,8 @@ Este archivo es el que se debe exportar para su uso en producción o despliegue 
 
 ---
 
-**Autores:**
-Miguel Angel Peña
-Jacqueline Robles
+## Autores
 
-```
+- [@Peña Lopez Miguel Angel](https://github.com/KingSplatt)
 
-```
+- [@Robles Rios Jacquelin](https://github.com/jacq1813)
