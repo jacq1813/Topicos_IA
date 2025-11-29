@@ -18,6 +18,7 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        setProperty("archivesBaseName", "deTec")
     }
 
     buildTypes {
@@ -54,6 +55,13 @@ android {
             excludes += "META-INF/DEPENDENCIES"
         }
     }
+    applicationVariants.all {
+        outputs.all {
+            // Esto fuerza el nombre exacto
+            (this as? com.android.build.gradle.internal.api.BaseVariantOutputImpl)?.outputFileName = "deTec.apk"
+        }
+    }
+
 }
 
 dependencies {

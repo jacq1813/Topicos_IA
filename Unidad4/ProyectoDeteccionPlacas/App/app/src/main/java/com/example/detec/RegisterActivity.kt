@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontWeight.Companion.Bold
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -70,40 +71,72 @@ fun RegisterScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(60.dp))
-            Text(text = "deTec", fontSize = 40.sp, color = Color(0xFF6200EE), fontWeight = Bold)
+            Text(text = "deTec", fontSize = 48.sp,
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
             Spacer(modifier = Modifier.height(30.dp))
 
-            OutlinedTextField(
-                value = username, onValueChange = { username = it },
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF6200EE), unfocusedBorderColor = Color.White,
-                    focusedTextColor = Color.White, unfocusedContainerColor = Color(0xFFF5F5F5).copy(alpha=0.8f)
-                ),
-                label = { Text("Usuario") }, modifier = Modifier.fillMaxWidth(), singleLine = true
-            )
-            Spacer(modifier = Modifier.height(15.dp))
+            val componentShape = RoundedCornerShape(12.dp)
 
             OutlinedTextField(
-                value = email, onValueChange = { email = it },
-                shape = RoundedCornerShape(12.dp),
+                value = username,
+                onValueChange = { username = it },
+                shape = componentShape,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF6200EE), unfocusedBorderColor = Color.White,
-                    focusedTextColor = Color.White, unfocusedContainerColor = Color(0xFFF5F5F5).copy(alpha=0.8f)
+                    focusedBorderColor = Color(0xFF6200EE),
+                    unfocusedBorderColor = Color.White,
+                    focusedTextColor = Color.White,
+                    unfocusedContainerColor = Color.White.copy(alpha = 0.15f), // Estilo translúcido del arch 1
+                    cursorColor = Color.White,
+                    focusedLabelColor = Color(0xFF6200EE),
+                    unfocusedLabelColor = Color.White
                 ),
-                label = { Text("Correo") }, modifier = Modifier.fillMaxWidth(), singleLine = true
+                label = { Text("Nombre") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
             )
-            Spacer(modifier = Modifier.height(15.dp))
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedTextField(
-                value = password, onValueChange = { password = it },
-                shape = RoundedCornerShape(12.dp),
+                value = email,
+                onValueChange = { email = it },
+                shape = componentShape,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF6200EE), unfocusedBorderColor = Color.White,
-                    focusedTextColor = Color.White, unfocusedContainerColor = Color(0xFFF5F5F5).copy(alpha=0.8f)
+                    focusedBorderColor = Color(0xFF6200EE),
+                    unfocusedBorderColor = Color.White,
+                    focusedTextColor = Color.White,
+                    unfocusedContainerColor = Color.White.copy(alpha = 0.15f),
+                    cursorColor = Color.White,
+                    focusedLabelColor = Color(0xFF6200EE),
+                    unfocusedLabelColor = Color.White
                 ),
-                label = { Text("Contraseña") }, modifier = Modifier.fillMaxWidth(),
-                singleLine = true, visualTransformation = PasswordVisualTransformation()
+                label = { Text("Correo") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                shape = componentShape,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF6200EE),
+                    unfocusedBorderColor = Color.White,
+                    focusedTextColor = Color.White,
+                    unfocusedContainerColor = Color.White.copy(alpha = 0.15f),
+                    cursorColor = Color.White,
+                    focusedLabelColor = Color(0xFF6200EE),
+                    unfocusedLabelColor = Color.White
+                ),
+                label = { Text("Contraseña") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation()
             )
             Spacer(modifier = Modifier.height(25.dp))
 
