@@ -6,7 +6,7 @@ import torch
 
 app = Flask(__name__)
 
-print("🚀 Servidor Iniciado (Versión Optimizada)")
+print(" Servidor Iniciado (Versión Optimizada)")
 
 @app.route('/analizar', methods=['POST'])
 def analizar_placa():
@@ -66,7 +66,7 @@ def analizar_placa():
         gc.collect()
         print("🗑️ Memoria liberada de YOLO")
 
-        # 2. Cargar EasyOCR (Solo si hay recortes)
+        # 2. Cargar EasyOCR
         if recortes:
             print("📖 Cargando EasyOCR...")
             import easyocr
@@ -78,11 +78,11 @@ def analizar_placa():
                     for (bbox, text, prob) in ocr_result:
                         if prob > 0.3:
                             limpio = text.replace(" ", "").upper()
-                            # Filtro básico: Las placas suelen tener más de 3 caracteres
+                            # Filtro de caracteres
                             if len(limpio) > 3 and conf > confianza_max:
                                 confianza_max = conf
                                 texto_placa = limpio
-                            print(f"🔍 Texto detectado: {limpio} (Confianza OCR: {prob:.2f}, Confianza YOLO: {conf:.2f})")
+                            print(f"Texto detectado: {limpio} (Confianza OCR: {prob:.2f}, Confianza YOLO: {conf:.2f})")
                 except Exception as e_ocr:
                     print(f"Error leyendo recorte: {e_ocr}")
             
@@ -97,7 +97,7 @@ def analizar_placa():
 
     except Exception as e:
         gc.collect()
-        print(f"❌ ERROR FATAL: {str(e)}")
+        print(f" ERROR FATAL: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
