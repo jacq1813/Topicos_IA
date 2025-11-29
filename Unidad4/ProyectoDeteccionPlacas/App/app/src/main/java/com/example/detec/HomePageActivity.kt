@@ -49,22 +49,19 @@ fun HomeScreen(
     val context = LocalContext.current
     val session = SessionManager(context)
 
-    // VARIABLES PARA GUARDAR LOS DATOS
     var reportesList by remember { mutableStateOf<List<ReporteData>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
-    // --- CONSULTAR LA API AL INICIAR ---
     LaunchedEffect(Unit) {
         val userId = session.getUserId()
         if (userId != -1) {
             try {
-                // Llamamos a la API usando el ID del usuario guardado en sesión
                 val response = RetrofitClient.apiService.getReportesUsuario(userId)
                 if (response.isSuccessful && response.body() != null) {
                     reportesList = response.body()!!
                 }
             } catch (e: Exception) {
-                // Error silencioso o Toast
+
             } finally {
                 isLoading = false
             }
@@ -80,7 +77,6 @@ fun HomeScreen(
                 Text("deTec Menú", modifier = Modifier.padding(16.dp), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color(0xFF6200EE))
                 Divider(modifier = Modifier.padding(bottom = 8.dp))
 
-                // OPCIÓN 1: INICIO
                 NavigationDrawerItem(
                     label = { Text("Inicio") },
                     selected = true,
@@ -89,20 +85,17 @@ fun HomeScreen(
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
 
-                // --- AGREGAMOS ESTA NUEVA OPCIÓN (PERFIL) ---
                 NavigationDrawerItem(
                     label = { Text("Mi Perfil") },
                     selected = false,
                     onClick = {
                         scope.launch { drawerState.close() }
-                        onNavigateToProfile() // <--- Esta función ya la tienes disponible
+                        onNavigateToProfile()
                     },
                     icon = { Icon(Icons.Default.Person, null, tint = Color.Gray) },
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
-                // --------------------------------------------
 
-                // OPCIÓN 3: REPORTAR
                 NavigationDrawerItem(
                     label = { Text("Reportar") },
                     selected = false,
@@ -114,7 +107,6 @@ fun HomeScreen(
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
 
-                // OPCIÓN 4: CERRAR SESIÓN
                 NavigationDrawerItem(
                     label = { Text("Cerrar Sesión", color = Color.Red) },
                     selected = false,
@@ -151,10 +143,8 @@ fun HomeScreen(
                 if (isLoading) {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color(0xFF6200EE))
                 } else if (reportesList.isEmpty()) {
-                    // VISTA VACÍA
                     EmptyStateView(onReport)
                 } else {
-                    // LISTA DE REPORTES
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -170,7 +160,6 @@ fun HomeScreen(
     }
 }
 
-// TARJETA PARA CADA REPORTE
 @Composable
 fun ReportItemCard(reporte: ReporteData) {
     Card(
@@ -191,7 +180,6 @@ fun ReportItemCard(reporte: ReporteData) {
                 Text(text = "Placa: ${reporte.numPlaca}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF333333))
                 Text(text = reporte.descripcion ?: "Sin descripción", fontSize = 14.sp, color = Color.Gray, maxLines = 2)
                 Spacer(modifier = Modifier.height(4.dp))
-                // Recortar fecha para que no salga la hora larga
                 val fechaCorta = if (reporte.fecha != null && reporte.fecha.length >= 10) reporte.fecha.substring(0, 10) else "Fecha desconocida"
                 Text(text = "📅 $fechaCorta", fontSize = 12.sp, color = Color(0xFF6200EE))
             }
@@ -199,7 +187,6 @@ fun ReportItemCard(reporte: ReporteData) {
     }
 }
 
-// VISTA VACÍA
 @Composable
 fun EmptyStateView(onReport: () -> Unit) {
     Column(

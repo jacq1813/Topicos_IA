@@ -49,10 +49,10 @@ fun LoginScreen(
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) } // Para mostrar carga
+    var isLoading by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
-    val scope = rememberCoroutineScope() // Para lanzar la petición
+    val scope = rememberCoroutineScope()
     val componentShape = RoundedCornerShape(12.dp)
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -63,8 +63,6 @@ fun LoginScreen(
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
-
-        // Overlay oscuro sutil para mejorar legibilidad
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = Color.Black.copy(alpha = 0.3f)
@@ -75,13 +73,13 @@ fun LoginScreen(
                 .fillMaxSize()
                 .padding(28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center // Centrado vertical mejorado
+            verticalArrangement = Arrangement.Center
         ) {
 
             Text(
                 text = "deTec",
-                fontSize = 48.sp, // Ligeramente más grande
-                color = Color.White, // Blanco para resaltar sobre fondo
+                fontSize = 48.sp,
+                color = Color.White,
                 fontWeight = FontWeight.Bold
             )
 
@@ -95,7 +93,7 @@ fun LoginScreen(
                     focusedBorderColor = Color(0xFF6200EE),
                     unfocusedBorderColor = Color.White,
                     focusedTextColor = Color.White,
-                    unfocusedContainerColor = Color.White.copy(alpha = 0.15f), // Fondo semitransparente
+                    unfocusedContainerColor = Color.White.copy(alpha = 0.15f),
                     cursorColor = Color.White,
                     focusedLabelColor = Color(0xFF6200EE),
                     unfocusedLabelColor = Color.White
@@ -125,23 +123,17 @@ fun LoginScreen(
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation()
             )
-
-            // BOTÓN ESTILO REPORT ACTIVITY
             Spacer(modifier = Modifier.height(32.dp))
 
-            // BOTÓN MODIFICADO CON LÓGICA DE CONEXIÓN
             Button(
                 onClick = {
-                    // LÓGICA DE LOGIN
+
                     if (email.isNotEmpty() && password.isNotEmpty()) {
                         isLoading = true
                         scope.launch {
                             isLoading = true
                             try {
-                                // 1. Preparamos los datos con los nombres correctos
                                 val request = LoginRequest(email, password)
-
-                                // 2. Hacemos la llamada al servidor
                                 val response = RetrofitClient.apiService.login(request)
 
                                 if (response.isSuccessful && response.body()?.usuario != null) {
@@ -150,7 +142,6 @@ fun LoginScreen(
                                     session.saveUser(usuario.id, usuario.nombre, usuario.correo)
                                     onLoginSuccess()
                                 } else {
-                                    // CORRECCIÓN: Leer errorBody()
                                     val errorBodyStr = response.errorBody()?.string()
                                     Toast.makeText(context, "Error servidor: $errorBodyStr", Toast.LENGTH_LONG).show()
                                 }
@@ -165,7 +156,7 @@ fun LoginScreen(
                         Toast.makeText(context, "Llena todos los campos", Toast.LENGTH_SHORT).show()
                     }
                 },
-                enabled = !isLoading, // Deshabilitar si está cargando
+                enabled = !isLoading,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF6200EE),
                     contentColor = Color.White
@@ -193,7 +184,6 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(20.dp))
         }
 
-        // Footer pegado al fondo
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)

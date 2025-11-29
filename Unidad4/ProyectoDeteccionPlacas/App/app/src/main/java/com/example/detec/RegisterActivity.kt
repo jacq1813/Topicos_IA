@@ -73,7 +73,6 @@ fun RegisterScreen(
             Text(text = "deTec", fontSize = 40.sp, color = Color(0xFF6200EE), fontWeight = Bold)
             Spacer(modifier = Modifier.height(30.dp))
 
-            // Inputs (Igual que tenías)
             OutlinedTextField(
                 value = username, onValueChange = { username = it },
                 shape = RoundedCornerShape(12.dp),
@@ -108,7 +107,6 @@ fun RegisterScreen(
             )
             Spacer(modifier = Modifier.height(25.dp))
 
-            // BOTÓN CON LÓGICA DE CONEXIÓN
             Button(
                 onClick = {
                     if (username.isNotEmpty() && email.isNotEmpty() && password.isNotEmpty()) {
@@ -125,10 +123,7 @@ fun RegisterScreen(
                                     Toast.makeText(context, "Registro exitoso", Toast.LENGTH_SHORT).show()
                                     onRegisterSuccess()
                                 } else {
-                                    // CORRECCIÓN: Leer el error real del servidor
                                     val errorJson = response.errorBody()?.string()
-                                    // Nota: errorJson será algo comoString {"error": "El correo ya está registrado"}
-                                    // Para simplificar, mostramos el texto crudo o un mensaje genérico si falla al leer
                                     Toast.makeText(context, "Error: $errorJson", Toast.LENGTH_LONG).show()
                                 }
                             } catch (e: Exception) {

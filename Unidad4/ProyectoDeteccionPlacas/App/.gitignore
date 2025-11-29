@@ -14,6 +14,3 @@
 .cxx
 *.apk
 *.aab
-
-# Google Services (si usas Firebase, descomenta la siguiente línea para seguridad)
-# google-services.json

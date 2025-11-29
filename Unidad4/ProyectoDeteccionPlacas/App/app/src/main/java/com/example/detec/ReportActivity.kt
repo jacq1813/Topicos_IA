@@ -17,7 +17,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -33,7 +32,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -43,6 +41,9 @@ import com.example.detec.model.ReportRequest
 import com.example.detec.network.RetrofitClient
 import com.example.detec.ui.theme.DeTECTheme
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -54,16 +55,11 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Date
-import com.google.android.gms.location.Priority
-import com.google.android.gms.tasks.CancellationTokenSource
 
 class ReportActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Despertar al servidor IA
         despertarServidor()
-
         setContent {
             DeTECTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -76,8 +72,7 @@ class ReportActivity : ComponentActivity() {
     private fun despertarServidor() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // URL de Hugging Face
-                val url = "https://jacqueline-placas.hf.space/"
+                val url = "https://jacq13-ia-placas-detect.hf.space"
                 val client = OkHttpClient()
                 val request = Request.Builder().url(url).build()
                 client.newCall(request).execute()
@@ -98,80 +93,48 @@ fun ReportScreen(onNavigateBack: () -> Unit = {}, onReport: () -> Unit) {
     val scope = rememberCoroutineScope()
     val session = SessionManager(context)
 
-    // --- LÓGICA GPS ---
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
-    // Coordenada default por si falla el GPS
     var coordenadasGPS by remember { mutableStateOf("24.80, -107.40") }
-
-    // Intentamos obtener ubicación al entrar a la pantalla
-    // En ReportActivity.kt, dentro de ReportScreen
 
     LaunchedEffect(Unit) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-
-            // Opción 1: Intenta obtener la última conocida (es muy rápida)
             fusedLocationClient.lastLocation.addOnSuccessListener { location ->
                 if (location != null) {
                     coordenadasGPS = "${location.latitude}, ${location.longitude}"
-                    Log.d("GPS_DETEC", "Ubicación caché: $coordenadasGPS")
                 } else {
-                    // Opción 2 (PLAN B): Si la memoria está vacía (NULL), forzamos búsqueda nueva
-                    // Esto es lo que arregla el problema en tu emulador
-                    Toast.makeText(context, "Activando GPS...", Toast.LENGTH_SHORT).show()
-
-                    // Priority.PRIORITY_HIGH_ACCURACY obliga a usar el GPS real
                     fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, CancellationTokenSource().token)
-                        .addOnSuccessListener { freshLocation ->
-                            if (freshLocation != null) {
-                                coordenadasGPS = "${freshLocation.latitude}, ${freshLocation.longitude}"
-                                Toast.makeText(context, "📍 Ubicación actual: $coordenadasGPS", Toast.LENGTH_LONG).show()
-                                Log.d("GPS_DETEC", "Ubicación fresca: $coordenadasGPS")
-                            } else {
-                                Log.e("GPS_DETEC", "Imposible detectar ubicación")
-                            }
+                        .addOnSuccessListener { fresh ->
+                            if (fresh != null) coordenadasGPS = "${fresh.latitude}, ${fresh.longitude}"
                         }
                 }
             }
         }
     }
 
-    // --- CÁMARA ORIGINAL (Intent) ---
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture()
-    ) { success ->
+    val cameraLauncher = rememberLauncherForActivityResult(contract = ActivityResultContracts.TakePicture()) { success ->
         if (success && currentPhotoFile != null) {
             hasCapturedPhoto = true
             detectedPlate = "Procesando..."
             isLoading = true
 
-            // Procesamiento en segundo plano
             scope.launch(Dispatchers.IO) {
                 try {
-                    val originalFile = currentPhotoFile!!
-                    val bitmap = BitmapFactory.decodeFile(originalFile.absolutePath)
-
-                    // Comprimir imagen antes de enviar
-                    val aspectRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
+                    val file = currentPhotoFile!!
+                    val bitmap = BitmapFactory.decodeFile(file.absolutePath)
                     val width = 800
-                    val height = (width / aspectRatio).toInt()
-                    val resizedBitmap = Bitmap.createScaledBitmap(bitmap, width, height, false)
-                    val outStream = FileOutputStream(originalFile)
-                    resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 70, outStream)
-                    outStream.flush(); outStream.close()
+                    val height = (width / (bitmap.width.toFloat() / bitmap.height.toFloat())).toInt()
+                    val resized = Bitmap.createScaledBitmap(bitmap, width, height, false)
+                    val outStream = FileOutputStream(file)
+                    resized.compress(Bitmap.CompressFormat.JPEG, 70, outStream)
+                    outStream.close()
 
-                    // Enviar a IA (Hugging Face)
-                    val requestFile = originalFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
-                    val body = MultipartBody.Part.createFormData("imagen", originalFile.name, requestFile)
+                    val req = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
+                    val body = MultipartBody.Part.createFormData("imagen", file.name, req)
                     val response = RetrofitClient.apiServiceIA.analizarPlaca(body)
 
                     withContext(Dispatchers.Main) {
-                        if (response.isSuccessful) {
-                            detectedPlate = response.body()?.placa ?: ""
-                            if (detectedPlate == "NODETECTADO") detectedPlate = ""
-                        } else {
-                            detectedPlate = ""
-                            Toast.makeText(context, "No se detectó placa", Toast.LENGTH_SHORT).show()
-                        }
+                        detectedPlate = if (response.isSuccessful) response.body()?.placa ?: "" else ""
+                        if (detectedPlate == "NODETECTADO") detectedPlate = ""
                     }
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) { detectedPlate = "" }
@@ -184,39 +147,18 @@ fun ReportScreen(onNavigateBack: () -> Unit = {}, onReport: () -> Unit) {
 
     fun createImageFile(): File {
         val storageDir = context.getExternalFilesDir(null)
-        return File.createTempFile("JPEG_${Date().time}_", ".jpg", storageDir).apply {
-            currentPhotoFile = this
-        }
+        return File.createTempFile("JPEG_${Date().time}_", ".jpg", storageDir).apply { currentPhotoFile = this }
     }
 
-    // Permisos: Pedimos CÁMARA y UBICACIÓN al mismo tiempo
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val cameraGranted = permissions[Manifest.permission.CAMERA] ?: false
-        val locationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
-
-        if (cameraGranted) {
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { perms ->
+        if (perms[Manifest.permission.CAMERA] == true) {
             val file = createImageFile()
-            val uri = FileProvider.getUriForFile(context, "com.example.detec.provider", file)
-            currentPhotoUri = uri
-            cameraLauncher.launch(uri)
-        } else {
-            Toast.makeText(context, "Se requiere permiso de cámara", Toast.LENGTH_SHORT).show()
-        }
-
-        // Si nos dieron permiso de GPS, actualizamos la coordenada ahora mismo
-        if (locationGranted) {
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
-                    if (loc != null) coordenadasGPS = "${loc.latitude}, ${loc.longitude}"
-                }
-            }
+            currentPhotoUri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+            cameraLauncher.launch(currentPhotoUri)
         }
     }
 
     if (hasCapturedPhoto) {
-        // PANTALLA DE FORMULARIO
         ReportFormScreen(
             detectedPlate = detectedPlate,
             imageFile = currentPhotoFile,
@@ -224,34 +166,46 @@ fun ReportScreen(onNavigateBack: () -> Unit = {}, onReport: () -> Unit) {
             onNavigateBack = { hasCapturedPhoto = false },
             onRetakePhoto = { hasCapturedPhoto = false },
             onConfirmReport = { finalPlate, finalDesc ->
-                // LOGICA DE ENVIO FINAL
                 isLoading = true
                 scope.launch(Dispatchers.IO) {
                     try {
-                        val idUser = session.getUserId()
-                        val userId = if (idUser is Int) idUser else 0
-
-                        // AQUÍ USAMOS LA VARIABLE coordenadasGPS QUE OBTUVIMOS
+                        val userId = if (session.getUserId() is Int) session.getUserId() else 0
                         val nuevoReporte = ReportRequest(
                             usuarioId = userId,
                             numPlaca = finalPlate,
                             descripcion = finalDesc,
                             coordenadas = coordenadasGPS,
-                            imgEvidencia = "foto_evidencia.jpg"
+                            imgEvidencia = "foto.jpg"
                         )
 
                         val response = RetrofitClient.apiService.crearReporte(nuevoReporte)
 
                         withContext(Dispatchers.Main) {
                             if (response.isSuccessful) {
-                                Toast.makeText(context, "¡Reporte enviado exitosamente!", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "¡Reporte Guardado!", Toast.LENGTH_SHORT).show()
+
+                                val correoUsuario = session.getUserEmail()
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    try {
+                                        EmailSender.enviar(
+                                            destinatario = correoUsuario,
+                                            placa = finalPlate,
+                                            descripcion = finalDesc
+                                        )
+                                    } catch (e: Exception) {
+                                        Log.e("Correo", "Error envío fondo: ${e.message}")
+                                    }
+                                }
+
                                 onReport()
                             } else {
                                 Toast.makeText(context, "Error servidor: ${response.code()}", Toast.LENGTH_LONG).show()
                             }
                         }
                     } catch (e: Exception) {
-                        withContext(Dispatchers.Main) { Toast.makeText(context, "Error de red", Toast.LENGTH_LONG).show() }
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Error de red: Verifique internet", Toast.LENGTH_LONG).show()
+                        }
                     } finally {
                         withContext(Dispatchers.Main) { isLoading = false }
                     }
@@ -259,22 +213,13 @@ fun ReportScreen(onNavigateBack: () -> Unit = {}, onReport: () -> Unit) {
             }
         )
     } else {
-        // PANTALLA DE TOMA DE FOTO (Original)
         ReportCaptureView(
             onNavigateBack = onNavigateBack,
-            onTakePhoto = {
-                // Lanzamos petición múltiple
-                permissionLauncher.launch(arrayOf(
-                    Manifest.permission.CAMERA,
-                    Manifest.permission.ACCESS_FINE_LOCATION
-                ))
-            },
+            onTakePhoto = { permissionLauncher.launch(arrayOf(Manifest.permission.CAMERA, Manifest.permission.ACCESS_FINE_LOCATION)) },
             onSelectFromGallery = { Toast.makeText(context, "Próximamente", Toast.LENGTH_SHORT).show() }
         )
     }
 }
-
-// --- VISTAS AUXILIARES (Tus mismas vistas, sin cambios lógicos) ---
 
 @Composable
 fun ReportFormScreen(detectedPlate: String, imageFile: File?, isLoadingIA: Boolean, onNavigateBack: () -> Unit, onRetakePhoto: () -> Unit, onConfirmReport: (String, String) -> Unit) {

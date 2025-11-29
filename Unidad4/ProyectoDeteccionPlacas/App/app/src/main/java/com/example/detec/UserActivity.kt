@@ -32,8 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.detec.ui.theme.DeTECTheme
 import androidx.compose.ui.platform.LocalContext
-import com.example.detec.network.RetrofitClient // Importante para la API
-import kotlinx.coroutines.launch
+import com.example.detec.network.RetrofitClient
+
 
 class UserActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,28 +55,26 @@ fun UserProfileScreen(
     val context = LocalContext.current
     val session = SessionManager(context)
 
-    // 1. Obtener Datos del Usuario de la Sesión
+
     val userName = session.getUserName()
     val userEmail = session.getUserEmail()
 
-    // 2. Lógica para contar los reportes reales desde la API
-    var reportCount by remember { mutableStateOf("...") } // "..." mientras carga
+
+    var reportCount by remember { mutableStateOf("...") }
 
     LaunchedEffect(Unit) {
         val userId = session.getUserId()
         if (userId != -1) {
             try {
-                // Llamamos a la API
                 val response = RetrofitClient.apiService.getReportesUsuario(userId)
                 if (response.isSuccessful && response.body() != null) {
-                    // Contamos el tamaño de la lista
                     val cantidad = response.body()!!.size
                     reportCount = cantidad.toString()
                 } else {
                     reportCount = "0"
                 }
             } catch (e: Exception) {
-                reportCount = "-" // Muestra guion si hay error de red
+                reportCount = "-"
             }
         }
     }
@@ -88,7 +86,6 @@ fun UserProfileScreen(
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // --- ENCABEZADO ---
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -104,12 +101,10 @@ fun UserProfileScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // --- TARJETA DE INFORMACIÓN ---
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Foto
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier.size(120.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xFFE0E0E0))
@@ -117,7 +112,6 @@ fun UserProfileScreen(
                 Icon(Icons.Default.AccountCircle, "Foto", modifier = Modifier.size(60.dp), tint = Color(0xFF6200EE))
             }
 
-            // Datos
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 InfoCard(Icons.Default.Person, "Nombre completo", userName, Color(0xFF6200EE), Color(0xFFF3E5F5))
                 InfoCard(Icons.Default.Email, "Correo", userEmail, Color(0xFF2196F3), Color(0xFFE3F2FD))
@@ -129,7 +123,6 @@ fun UserProfileScreen(
 
         Spacer(modifier = Modifier.height(30.dp))
 
-        // --- ESTADÍSTICAS ---
         Text("ESTADÍSTICAS", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF6200EE), modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp))
         Spacer(modifier = Modifier.height(15.dp))
 
@@ -137,44 +130,29 @@ fun UserProfileScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp) // Espacio entre ellas
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Tarjeta Reportes
             StatCard(
                 icon = Icons.Default.List,
                 value = reportCount,
                 title = "Reportes",
                 subtitle = "Realizados",
                 color = Color(0xFF6200EE),
-                modifier = Modifier.weight(1f) // <--- ESTO LA HACE CRECER AL 50%
+                modifier = Modifier.weight(1f)
             )
 
-            // Tarjeta Estado (Verde)
             StatCard(
                 icon = Icons.Default.CheckCircle,
                 value = "Activo",
                 title = "Estado",
                 subtitle = "Cuenta",
                 color = Color(0xFF4CAF50),
-                modifier = Modifier.weight(1f) // <--- ESTO LA HACE DEL MISMO TAMAÑO QUE LA OTRA
+                modifier = Modifier.weight(1f)
             )
         }
 
         Spacer(modifier = Modifier.height(40.dp))
 
-        // --- BOTÓN CONFIGURAR ---
-        Button(
-            onClick = { /* Acción futura */ },
-            modifier = Modifier.fillMaxWidth(0.9f).height(56.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6200EE), contentColor = Color.White)
-        ) {
-            Text("CONFIGURAR PERFIL", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-        }
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        // --- FOOTER ---
         Text(
             text = buildAnnotatedString {
                 append("Todos los derechos reservados ")
@@ -184,8 +162,6 @@ fun UserProfileScreen(
         )
     }
 }
-
-// --- COMPONENTES AUXILIARES ---
 
 @Composable
 fun InfoCard(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, value: String, iconColor: Color, backgroundColor: Color) {
@@ -199,8 +175,7 @@ fun InfoCard(icon: androidx.compose.ui.graphics.vector.ImageVector, title: Strin
     }
 }
 
-// Componente reutilizable para tarjetas de estadísticas (CORREGIDO)
-// Reemplaza tu función StatCard con esta versión flexible:
+
 @Composable
 fun StatCard(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -208,13 +183,13 @@ fun StatCard(
     title: String,
     subtitle: String,
     color: Color,
-    modifier: Modifier = Modifier // <--- Nuevo parámetro para controlar el tamaño
+    modifier: Modifier = Modifier
 ) {
     Box(
-        modifier = modifier // <--- Usamos el modificador que viene de fuera (weight)
+        modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .background(color.copy(alpha = 0.1f))
-            .padding(16.dp), // Padding interno cómodo
+            .padding(16.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
