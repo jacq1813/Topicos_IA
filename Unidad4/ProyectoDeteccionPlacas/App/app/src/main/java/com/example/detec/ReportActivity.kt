@@ -199,7 +199,7 @@ fun ReportScreen(onNavigateBack: () -> Unit = {}, onReport: () -> Unit) {
 
                                 onReport()
                             } else {
-                                Toast.makeText(context, "Error servidor: ${response.code()}", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "Error no se pudo guardar el reporte", Toast.LENGTH_LONG).show()
                             }
                         }
                     } catch (e: Exception) {

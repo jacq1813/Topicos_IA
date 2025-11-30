@@ -156,8 +156,8 @@ fun RegisterScreen(
                                     Toast.makeText(context, "Registro exitoso", Toast.LENGTH_SHORT).show()
                                     onRegisterSuccess()
                                 } else {
-                                    val errorJson = response.errorBody()?.string()
-                                    Toast.makeText(context, "Error: $errorJson", Toast.LENGTH_LONG).show()
+                                    //val errorJson = response.errorBody()?.string()
+                                    Toast.makeText(context, "Error: de conexión, servidor iniciandose", Toast.LENGTH_LONG).show()
                                 }
                             } catch (e: Exception) {
                                 Toast.makeText(context, "Error de red: ${e.message}", Toast.LENGTH_SHORT).show()

@@ -142,8 +142,8 @@ fun LoginScreen(
                                     session.saveUser(usuario.id, usuario.nombre, usuario.correo)
                                     onLoginSuccess()
                                 } else {
-                                    val errorBodyStr = response.errorBody()?.string()
-                                    Toast.makeText(context, "Error servidor: $errorBodyStr", Toast.LENGTH_LONG).show()
+                                    //val errorBodyStr = response.errorBody()?.string()
+                                    Toast.makeText(context, "Error usuario no registrado", Toast.LENGTH_LONG).show()
                                 }
                             } catch (e: Exception) {
                                 Toast.makeText(context, "Error de conexión: ${e.message}", Toast.LENGTH_LONG).show()
